@@ -1,12 +1,14 @@
 /*
- * SmartParallel.cpp
- *
- * Created: 4/23/2018 6:53:13 PM
- * Author : Steve
+  SmartParallel.cpp
+
+  Code for Atmel ATMEGA328PB micronctroller on the SmartParallel serial to
+  parallel interface.
+
+  Intended for use with an Epson MX-80 F/T III dot matrix printer.
+
+  Also designed to work with the Devantach 40 char x 4-line I2C LDC display.
 
   Epson MX-80 F/T III parallel interface has a transfer rate of 1000 cps.
-
-  328PB (SMD) version
 
   Codes supported by Epson MX-80 & Devantech LCD include:
 				EPSON						LCD
@@ -24,14 +26,7 @@
   The extended (8-bit) character set is actually the same as the 7-bit, just with 128 added, so we
   can ignore characters in this range (or deduct 128 from them).
  */
-
-
- /** ****IMPORTANT - Pin assignments have changed so this code won't work until refactored ****** 
  
-	THIS SHOULD BE RE-WRITTEN WITH A PRINTER OBJECT THAT CAN STORE THINGS LIKE STATE
- 
- **/
-
 #define TESTING true
 
 #ifndef F_CPU					// if F_CPU was not defined in Project -> Properties
@@ -49,6 +44,7 @@
 #include <smd_avr_seriallib.h>
 #include <ShiftReg74hc595.cpp>
 #include "SP328PB_defines.h"
+#include "SP328PB_general_functions.h"
 #include "SP328PB_display_functions.h"
 #include "SP328PB_serial_functions.h"
 
@@ -64,7 +60,7 @@ const char * serial_comm_msg[] = {"SER_OK", "SER_READ_TIMEOUT", "SER_BUF_CLEARED
 const char * msg_prefix[] = {"Prt:", "Ser:"};
 
 SMD_I2C_Device lcd = SMD_I2C_Device(LCD_ADDRESS, I2C_BUS_SPEED_STD);
-SMD_AVR_Serial serialport = SMD_AVR_Serial(SERIAL_BAUD_RATE);	// default baudrate 19200
+SMD_AVR_Serial SerialPort = SMD_AVR_Serial(SERIAL_BAUD_RATE);	// default baudrate 19200
 ShiftReg74hc595 DataRegister = ShiftReg74hc595(SHCP_PIN, STCP_PIN, DATA_PIN, &SHIFTREG_REG, &SHIFTREG_DDR);
 
 char printBuf[PRINT_BUF_LEN];	// line buffer of which last element will always be null terminator
@@ -115,7 +111,7 @@ void clearBuffer()
 	buf_index = 0;
 	buf_ready = false;
 	//serialport.writeln("PRT_BUF_CLEARED");
-	serialport.clearBuffer();
+	SerialPort.clearBuffer();
 	//serialport.writeln(serial_comm_msg[SER_BUF_CLEARED]);
 	//serialport.writeln(serial_comm_msg[SER_OK]);
 }
@@ -127,7 +123,7 @@ printer_state initialisePrinter()
 	curr_state = INIT;
 	sendStateMsg();						    // show we're initialising
 	clearBuffer();							// clear the print data buffer
-	serialport.clearBuffer();				// clear serial port's input buffer
+	SerialPort.clearBuffer();				// clear serial port's input buffer
 	DataRegister.shiftOut(0);				// set data lines to all zeroes
 	setPin(&OUTPUT_PORT, INIT_PIN, LOW);	// send /INIT pulse
 	_delay_us(INIT_PULSE_LENGTH);
@@ -154,7 +150,7 @@ printer_state printBuffer()
 			curr_state = printChar(printBuf[buf_index], useAck);
 			if(curr_state != DONE) {
 				done = true;	// because we've encountered an error
-				serialport.writeln(prt_state_disp_msg[curr_state]);
+				SerialPort.writeln(prt_state_disp_msg[curr_state]);
 			}
 		} else {
 			done = true;	// we've encountered a 0, hence end of data
@@ -261,24 +257,24 @@ int main(void)
 	updatePrinterState();
 	printer_state prev_state = curr_state;
 
-	serialport.begin();							// initialise serial port
+	SerialPort.begin();							// initialise serial port
 
 	_delay_ms(250);								// pause to allow everything to stabilise - DO WE NEED THIS?
 
-	serialport.clearBuffer();
-	serialport.writeln("--");
-	serialport.writeln("PRT_START");
+	SerialPort.clearBuffer();
+	SerialPort.writeln("--");
+	SerialPort.writeln("PRT_START");
 
 	// do we have an LCD panel?
 	lcd_present = !(1 & lcd.checkAlive());
 	//serialport.write("I2C_ERR:"); serialport.writeln(lcd_present);
 	if (lcd_present) {
-		serialport.writeln("LCD_OK");
+		SerialPort.writeln("LCD_OK");
 		displayInit();								// initialise LCD panel
 		uint8_t lcd_version = lcd.readRegister(3);
-		serialport.write("LCD_VERSION_"); serialport.writeln(lcd_version);
+		SerialPort.write("LCD_VERSION_"); SerialPort.writeln(lcd_version);
 	} else {
-		serialport.writeln("LCD_NONE");
+		SerialPort.writeln("LCD_NONE");
 	}
 
 	displayMsg(serial_disp_msg[SER_OK], SERIAL);
@@ -317,7 +313,7 @@ int main(void)
 	*********************************************************************************/
     while (runloop)
     {
-		if(serialport.inWaiting()) {
+		if(SerialPort.inWaiting()) {
 			// We have serial data waiting. We're assuming a string terminated with a null,
 			// a linefeed or a carriage return. Any characters after any one of those three
 			// will be ignored this time through the loop.
@@ -335,14 +331,14 @@ int main(void)
 				uint8_t byte = 0;				// value for current byte. Default to terminator.
 				uint32_t no_data_count = 0;		// for timeout
 				while(!gotByte && !ser_err) {
-					byte = serialport.readByte();
+					byte = SerialPort.readByte();
 					if(byte != NO_DATA) {		// NO_DATA = 128, the high-order version of null
 						gotByte = true;
 					} else {
 						no_data_count++;
 						if(no_data_count >= SERIAL_TIMEOUT_LOOP_COUNTER) {
 							ser_err = true;
-							serialport.writeln(serial_comm_msg[SER_READ_TO]);
+							SerialPort.writeln(serial_comm_msg[SER_READ_TO]);
 							displayMsg(serial_disp_msg[SER_READ_TO], SERIAL);
 							clearBuffer();
 							//byte = 0;
@@ -398,51 +394,51 @@ int main(void)
 							break;
 					}
 				} else {
-					if(TESTING) serialport.writeln("*** serial error ***");
+					if(TESTING) SerialPort.writeln("*** serial error ***");
 				}
 			}
 			setLED(STAT_LED2_PIN, OFF);
 		}
 
 		if(buf_ready && buf_index > 0 && errorState == NO_ERR) {
-			if(TESTING) serialport.writeln("Buffer ready");
+			if(TESTING) SerialPort.writeln("Buffer ready");
 			//serialstate = SER_OK;			// must have been okay because we've got decent buffer
 			//update_serial_state = true;
 			if(printBuf[0] == 1) {			// SPECIAL COMMAND	
 				switch(printBuf[1]) {		// what's the next byte?
 					case 1:					// report printer interface settings
 						if(useAck) {
-							serialport.writeln("PIF_ACK_ENABLED");
+							SerialPort.writeln("PIF_ACK_ENABLED");
 							} else {
-							serialport.writeln("PIF_ACK_DISABLED");
+							SerialPort.writeln("PIF_ACK_DISABLED");
 						}
 						if(autoLF) {
-							serialport.writeln("PIF_LF_ENABLED");
+							SerialPort.writeln("PIF_LF_ENABLED");
 							} else {
-							serialport.writeln("PIF_LF_DISABLED");
+							SerialPort.writeln("PIF_LF_DISABLED");
 						}
 						break;
 					case 2:					// switch print mode to use ACK
 						useAck = ACK;
-						serialport.writeln("PIF_ACK_ENABLED");
+						SerialPort.writeln("PIF_ACK_ENABLED");
 						break;
 					case 3:					// switch print mode to use NO_ACK
 						useAck = NO_ACK;
-						serialport.writeln("PIF_ACK_DISABLED");
+						SerialPort.writeln("PIF_ACK_DISABLED");
 						break;
 					case 4:
 						autoLF = true;
-						serialport.writeln("PIF_LF_ENABLED");
+						SerialPort.writeln("PIF_LF_ENABLED");
 						break;
 					case 5:
 						autoLF = false;
-						serialport.writeln("PIF_LF_DISABLED");
+						SerialPort.writeln("PIF_LF_DISABLED");
 						break;
 					case 32:
 						updatePrinterState();
 						sendStateMsg();
 					case 64:				// SERIAL STUFF
-						serialport.writeln("SER_PONG");
+						SerialPort.writeln("SER_PONG");
 						break;
 				}
 				clearBuffer();

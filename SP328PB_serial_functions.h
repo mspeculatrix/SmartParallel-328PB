@@ -13,14 +13,14 @@
 #include "SP328PB_defines.h"
 #include "SP328PB_general_functions.h"
 
-extern SMD_AVR_Serial serialport;
+extern SMD_AVR_Serial SerialPort;
 extern const char * prt_state_comm_msg[];
 extern const char * prt_state_disp_msg[]; // This shouldn't have to be here - see below
 extern printer_state curr_state;
 
 void sendStateMsg()
 {
-	serialport.writeln(prt_state_comm_msg[curr_state]);
+	SerialPort.writeln(prt_state_comm_msg[curr_state]);
 	displayMsg(prt_state_disp_msg[curr_state], PRINTER);	// this is wrong place to be doing this
 }
 
