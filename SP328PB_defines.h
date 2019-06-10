@@ -67,6 +67,9 @@
 //#define RTS_REG			PINE
 //#define RTS_DDR			DDRE
 
+// ----- DISPLAY ----------------------------------
+#define LCD_ADDRESS 0xC6
+
 // ----- LEDS -------------------------------------
 #define STAT_LED1_PIN	PD5
 #define STAT_LED2_PIN	PD6
@@ -74,5 +77,11 @@
 #define LED_REG			PORTD
 #define LED_DDR			DDRD
 
+
+enum printer_state {READY, DONE, INIT, OFFLINE, PRINTING, BUSY, ERROR, PAPER_END, ACK_TIMEOUT, BUSY_TIMEOUT};
+enum serial_state {SER_OK, SER_READ_TO, SER_BUF_CLEARED};
+enum ack_state {ACK, NO_ACK};
+enum error_state {NO_ERR, ERR};
+enum lcd_msg_type {PRINTER, SERIAL};
 
 #endif /* SMARTPARALLEL328PB_DEFINES_H_ */

@@ -50,24 +50,17 @@
 #include <ShiftReg74hc595.cpp>
 #include "SP328PB_defines.h"
 #include "SP328PB_display_functions.h"
-
-enum printer_state {READY, DONE, INIT, OFFLINE, PRINTING, BUSY, ERROR, PAPER_END, ACK_TIMEOUT, BUSY_TIMEOUT};
-const char * prt_state_disp_msg[] = {"READY", "DONE", "INITIALISING", "OFFLINE", "PRINTING", "BUSY", "ERROR", "PAPER_END", "ACK TIMEOUT", "BUSY TIMEOUT"};
-const char * prt_state_comm_msg[] = {"PRT_READY", "PRT_DONE", "PRT_INIT", "PRT_OFFLINE", "PRT_PRINTING", "PRT_BUSY", "PRT_ERROR", "PRT_PE", "PRT_ACK_TIMEOUT", "PRT_BUSY_TIMEOUT"};
-
-enum serial_state {SER_OK, SER_READ_TO, SER_BUF_CLEARED};
-const char * serial_comm_msg[] = {"SER_OK", "SER_READ_TIMEOUT", "SER_BUF_CLEARED"};
-const char * serial_disp_msg[] = {"OK", "READ TIMEOUT", "BUF CLEARED"};
-
-enum ack_state {ACK, NO_ACK};
-enum error_state {NO_ERR, ERR};
-
-#define LCD_ADDRESS 0xC6
-const char * msg_prefix[] = {"Prt:", "Ser:"};
+#include "SP328PB_serial_functions.h"
 
 /********************************************************************************
 *****   GLOBALS                                                             *****
 *********************************************************************************/
+const char * prt_state_disp_msg[] = {"READY", "DONE", "INITIALISING", "OFFLINE", "PRINTING", "BUSY", "ERROR", "PAPER_END", "ACK TIMEOUT", "BUSY TIMEOUT"};
+const char * prt_state_comm_msg[] = {"PRT_READY", "PRT_DONE", "PRT_INIT", "PRT_OFFLINE", "PRT_PRINTING", "PRT_BUSY", "PRT_ERROR", "PRT_PE", "PRT_ACK_TIMEOUT", "PRT_BUSY_TIMEOUT"};
+
+const char * serial_comm_msg[] = {"SER_OK", "SER_READ_TIMEOUT", "SER_BUF_CLEARED"};
+const char * serial_disp_msg[] = {"OK", "READ TIMEOUT", "BUF CLEARED"};
+const char * msg_prefix[] = {"Prt:", "Ser:"};
 
 SMD_I2C_Device lcd = SMD_I2C_Device(LCD_ADDRESS, I2C_BUS_SPEED_STD);
 SMD_AVR_Serial serialport = SMD_AVR_Serial(SERIAL_BAUD_RATE);	// default baudrate 19200
@@ -81,21 +74,11 @@ ack_state useAck = ACK;
 error_state errorState = NO_ERR;
 bool autoLF = false;				// is printer set to use auto linefeed?
 printer_state curr_state = READY;
-bool lcd_present = false;			// assume not
+bool lcd_present = false;			// assume no display
 
 /********************************************************************************
 *****   FORWARD DECLARATIONS                                                *****
 *********************************************************************************/
-
-// SERIAL FUNCTIONS
-void sendStateMsg();
-void setCTS(uint8_t hilo);
-
-// GENERAL FUNCTIONS
-uint8_t readPin(volatile uint8_t * portreg, uint8_t pin);
-void setPin(volatile uint8_t * portreg, uint8_t pin, uint8_t hilo);
-void setLED(uint8_t pin, uint8_t onOff);
-
 // PRINTER FUNCTIONS
 void clearBuffer();
 printer_state initialisePrinter();
@@ -119,47 +102,6 @@ ISR(INT1_vect)		// for /ERROR line
 	clearBuffer();
 }
 
-/********************************************************************************
-*****   GENERAL FUNCTIONS                                                   *****
-*********************************************************************************/
-uint8_t readPin(volatile uint8_t * portreg, uint8_t pin)
-{
-	// The input register - eg, PINB - is passed by reference
-	if((*portreg & (1 << pin)) == (1 << pin)) { // pin is high
-		return HIGH;
-	} else {
-		return LOW;
-	}
-}
-
-void setPin(volatile uint8_t * portreg, uint8_t pin, uint8_t hilo)
-{
-	// example call: writeBit(&PORTB, PB1, HIGH);
-	if(hilo == HIGH) {
-		*portreg |= (1 << pin);
-	} else {
-		*portreg &= ~(1 << pin);
-	}
-}
-
-void setLED(uint8_t pin, uint8_t onOff)
-{
-	setPin(&LED_REG, pin, onOff);
-}
-
-/********************************************************************************
-*****   SERIAL FUNCTIONS                                                    *****
-*********************************************************************************/
-void sendStateMsg()
-{
-	serialport.writeln(prt_state_comm_msg[curr_state]);
-	displayMsg(prt_state_disp_msg[curr_state], PRINTER);
-}
-
-void setCTS(uint8_t hilo)
-{
-	setPin(&SERIAL_REG, CTS_PIN, hilo);
-}
 
 /********************************************************************************
 *****   PRINTING FUNCTIONS                                                  *****
@@ -297,15 +239,15 @@ int main(void)
 	/********************************************************************************
 	*****   SETUP                                                               *****
 	*********************************************************************************/
+	// Set pin directions
+	SHIFTREG_DDR |= (1 << SHCP_PIN | 1 << STCP_PIN | 1 << DATA_PIN);			// shift reg pins as outputs
+	OUTPUT_DDR |= (1 << STROBE_PIN | 1 << INIT_PIN | 1 << AUTOFEED_PIN | 1 << SELIN_PIN);	// outputs
+	INPUT_DDR &= ~(1 << BUSY_PIN | 1 << PE_PIN | 1 << SELECT_PIN);				// BUSY, PE & SEL as inputs
+	INPUT_INT_DDR &= ~(1 << ACK_PIN | 1 << ERR_PIN);							// ACK and ERR as inputs
+	LED_DDR |= (1 << STAT_LED1_PIN | 1 << STAT_LED2_PIN | 1 << STAT_LED3_PIN);	// LEDS as outputs
+	SERIAL_DDR |= (1 << CTS_PIN);												// CTS as output
 
-	SHIFTREG_DDR |= (1 << SHCP_PIN | 1 << STCP_PIN | 1 << DATA_PIN);
-	OUTPUT_DDR |= (1 << STROBE_PIN | 1 << INIT_PIN | 1 << AUTOFEED_PIN | 1 << SELIN_PIN);
-	INPUT_DDR &= ~(1 << BUSY_PIN | 1 << PE_PIN | 1 << SELECT_PIN);
-	INPUT_INT_DDR &= ~(1 << ACK_PIN | 1 << ERR_PIN);
-	LED_DDR |= (1 << STAT_LED1_PIN | 1 << STAT_LED2_PIN | 1 << STAT_LED3_PIN);
-	SERIAL_DDR |= (1 << CTS_PIN);
-
-	setCTS(LOW);						// refuse serial data while getting set up
+	setCTS(LOW);								// refuse serial data while getting set up
 
 	// Set outputs at initial values
 	setPin(&OUTPUT_PORT, STROBE_PIN, HIGH);		// active low
@@ -376,13 +318,17 @@ int main(void)
     while (runloop)
     {
 		if(serialport.inWaiting()) {
-			// we have serial data waiting. We're assuming a string terminated with a null,
-			// a linefeed or a carriage return. Any characters after any one of thoe three
-			// will be ignored.
+			// We have serial data waiting. We're assuming a string terminated with a null,
+			// a linefeed or a carriage return. Any characters after any one of those three
+			// will be ignored this time through the loop.
 			//update_serial_state = true;
 			//if(TESTING) serialport.write(":");
 			setLED(STAT_LED2_PIN, ON);
 			bool ser_err = false;
+			// Loop, grabbing a byte at a time from the serial input.
+			// Keep going until we've got a sensible string (ie, we've encountered
+			// a terminator), or have reached the end of the buffer, or have
+			// encountered an error.
 			while(!buf_ready && !ser_err && buf_index < PRINT_BUF_LEN) {
 				//serialport.write("'");
 				bool gotByte = false;
