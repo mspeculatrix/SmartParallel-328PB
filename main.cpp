@@ -35,7 +35,7 @@
 #define TESTING true
 
 #ifndef F_CPU					// if F_CPU was not defined in Project -> Properties
-	#define F_CPU 8000000UL		// define it now as 16 MHz unsigned long
+	#define F_CPU 8000000UL		// define it now as 8MHz unsigned long - prob change to 16MHz
 #endif
 #include <avr/io.h>
 #include <string.h>
@@ -58,8 +58,9 @@
 const char * prt_state_disp_msg[] = {"READY", "DONE", "INITIALISING", "OFFLINE", "PRINTING", "BUSY", "ERROR", "PAPER_END", "ACK TIMEOUT", "BUSY TIMEOUT"};
 const char * prt_state_comm_msg[] = {"PRT_READY", "PRT_DONE", "PRT_INIT", "PRT_OFFLINE", "PRT_PRINTING", "PRT_BUSY", "PRT_ERROR", "PRT_PE", "PRT_ACK_TIMEOUT", "PRT_BUSY_TIMEOUT"};
 
-const char * serial_comm_msg[] = {"SER_OK", "SER_READ_TIMEOUT", "SER_BUF_CLEARED"};
 const char * serial_disp_msg[] = {"OK", "READ TIMEOUT", "BUF CLEARED"};
+const char * serial_comm_msg[] = {"SER_OK", "SER_READ_TIMEOUT", "SER_BUF_CLEARED"};
+
 const char * msg_prefix[] = {"Prt:", "Ser:"};
 
 SMD_I2C_Device lcd = SMD_I2C_Device(LCD_ADDRESS, I2C_BUS_SPEED_STD);
@@ -102,9 +103,8 @@ ISR(INT1_vect)		// for /ERROR line
 	clearBuffer();
 }
 
-
 /********************************************************************************
-*****   PRINTING FUNCTIONS                                                  *****
+*****   PRINTER FUNCTIONS                                                   *****
 *********************************************************************************/
 
 void clearBuffer()
@@ -224,12 +224,12 @@ void resetAck()
 
 printer_state updatePrinterState()
 {
-	curr_state = READY;						// let's assume the best
-	if(!readPin(&ERR_REG, ERR_PIN)) curr_state = ERROR;	// active low
-	if(readPin(&INPUT_REG, BUSY_PIN)) curr_state = BUSY;	// active high
-	if(!readPin(&INPUT_REG, SELECT_PIN)) curr_state = OFFLINE;
-	if(readPin(&INPUT_REG, PE_PIN)) curr_state = PAPER_END;	// active high - /ERROR and BUSY will also be set
-	if(curr_state == READY) errorState = NO_ERR;
+	curr_state = READY;											// let's be optimistic
+	if(!readPin(&ERR_REG, ERR_PIN)) curr_state = ERROR;			// active low
+	if(readPin(&INPUT_REG, BUSY_PIN)) curr_state = BUSY;		// active high
+	if(!readPin(&INPUT_REG, SELECT_PIN)) curr_state = OFFLINE;	// active low
+	if(readPin(&INPUT_REG, PE_PIN)) curr_state = PAPER_END;		// active high - /ERROR and BUSY will also be set
+	if(curr_state == READY) errorState = NO_ERR;	/// *** Don't much like how I'm setting a global here ***
 	return curr_state;
 }
 
