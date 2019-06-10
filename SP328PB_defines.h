@@ -18,16 +18,16 @@
 #define ACK_TIMEOUT_LOOP_DELAY 1			// us - microseconds
 #define ACK_TIMEOUT_LOOP_COUNTER 1000		// xACK_TIMEOUT_LOOP_DELAY
 
-#define BUSY_TIMEOUT_LOOP_DELAY 10			// milliseconds
-#define BUSY_TIMEOUT_LOOP_COUNTER 200		// xBUSY_TIMEOUT_LOOP_DELAY
+#define BUSY_TIMEOUT_LOOP_DELAY		10		// milliseconds
+#define BUSY_TIMEOUT_LOOP_COUNTER	200		// xBUSY_TIMEOUT_LOOP_DELAY
 
-#define SERIAL_TIMEOUT_LOOP_COUNTER 1710000	// roughly 570000 = 1 sec
+#define SERIAL_TIMEOUT_LOOP_COUNTER 1710000	// 570000 = 1 sec (approx)
 
 // TIMINGS
-#define INIT_PULSE_LENGTH 75				// us - time to hold init low - min 50us
-#define POST_INIT_DELAY 2000				// ms - time for printer to settle down after init
-#define PRE_STROBE_DELAY 1					// us - time between setting data & strobe pulse, min 0.5us
-#define STROBE_PULSE_LENGTH 1				// us - min 0.5us
+#define INIT_PULSE_LENGTH	75				// us - time to hold init low - min 50us
+#define POST_INIT_DELAY		2000			// ms - time for printer to settle down after init
+#define PRE_STROBE_DELAY	1				// us - time between setting data & strobe pulse, min 0.5us
+#define STROBE_PULSE_LENGTH	1				// us - min 0.5us
 
 // ----- PRINTER OUTPUTS ----------------------------------
 #define STROBE_PIN		PC0

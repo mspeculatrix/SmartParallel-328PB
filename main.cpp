@@ -331,8 +331,8 @@ int main(void)
 			// encountered an error.
 			while(!buf_ready && !ser_err && buf_index < PRINT_BUF_LEN) {
 				//serialport.write("'");
-				bool gotByte = false;
-				uint8_t byte = 0;
+				bool gotByte = false;			// have we retrieved a byte from input?
+				uint8_t byte = 0;				// value for current byte. Default to terminator.
 				uint32_t no_data_count = 0;		// for timeout
 				while(!gotByte && !ser_err) {
 					byte = serialport.readByte();
