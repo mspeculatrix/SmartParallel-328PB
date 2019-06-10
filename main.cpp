@@ -70,7 +70,7 @@ ack_state ackstate = NO_ACK;
 ack_state useAck = ACK;
 error_state errorState = NO_ERR;
 bool autoLF = false;				// is printer set to use auto linefeed?
-printer_state curr_state = READY;
+printer_state curr_state = READY;	// why not?
 bool lcd_present = false;			// assume no display
 
 /********************************************************************************
@@ -147,7 +147,7 @@ printer_state printBuffer()
 	bool done = false;
 	while(!done && errorState == NO_ERR) {
 		if(printBuf[buf_index] != 0) {
-			curr_state = printChar(printBuf[buf_index], useAck);
+			curr_state = printChar(printBuf[buf_index], useAck);	// print next character
 			if(curr_state != DONE) {
 				done = true;	// because we've encountered an error
 				SerialPort.writeln(prt_state_disp_msg[curr_state]);
@@ -160,7 +160,7 @@ printer_state printBuffer()
 	}
 	//if(TESTING) displayBuffer();
 	clearBuffer();
-	setCTS(HIGH);
+	setCTS(HIGH);					// signal that we're ready to receive again
 	updatePrinterState();
 	setLED(STAT_LED1_PIN, OFF);
 	return curr_state;
@@ -173,18 +173,18 @@ printer_state printChar(uint8_t chardata, ack_state waitForACK)
 		bool done = false;
 		uint8_t waitTimeoutCounter = 0;
 		while(!done) {
-			if(curr_state == READY) {				// Print character
-				resetAck();						// an excess of caution
-				DataRegister.shiftOut(chardata, MSBFIRST); // put data on shift reg
-				_delay_us(PRE_STROBE_DELAY);			// min 0.5us
-				setPin(&OUTPUT_PORT, STROBE_PIN, LOW);	// start strobe pulse
-				_delay_us(STROBE_PULSE_LENGTH);			// pulse time
-				setPin(&OUTPUT_PORT, STROBE_PIN, HIGH);	// end pulse
-				if(waitForACK == ACK) { 
-					uint8_t timeout_count = 0;	// the printer will hold ACK low for around 5us
+			if(curr_state == READY) {
+				resetAck();									// an excess of caution
+				DataRegister.shiftOut(chardata, MSBFIRST);	// put data on shift reg
+				_delay_us(PRE_STROBE_DELAY);				// settle down for min 0.5us
+				setPin(&OUTPUT_PORT, STROBE_PIN, LOW);		// start strobe pulse
+				_delay_us(STROBE_PULSE_LENGTH);				// - pulse time
+				setPin(&OUTPUT_PORT, STROBE_PIN, HIGH);		// - end pulse
+				if(waitForACK == ACK) {						// did we specify in param to wait for ACK?
+					uint8_t timeout_count = 0;				// NB: the printer will hold ACK low for around 5us
 					while(timeout_count <= ACK_TIMEOUT_LOOP_COUNTER && ackstate == NO_ACK) {
 						// the ACK line is set up on interrupt INT0 so we need to wait
-						// for the interrupt to trigger
+						// for the interrupt to trigger or our timeout to expire
 						_delay_us(ACK_TIMEOUT_LOOP_DELAY);
 						timeout_count++;
 					}
@@ -192,13 +192,13 @@ printer_state printChar(uint8_t chardata, ack_state waitForACK)
 						curr_state = ACK_TIMEOUT;
 					} else {
 						curr_state = DONE;
-						ackstate = NO_ACK;	// reset
+						resetAck();
 					}
 				} else {
-					curr_state = DONE;
+					curr_state = DONE;						// if we decided not to bother with ACK
 				}
 				done = true;
-			} else {
+			} else {										// curr_state wasn't READY - printer might be busy
 				_delay_ms(BUSY_TIMEOUT_LOOP_DELAY);
 				updatePrinterState();
 				waitTimeoutCounter++;
@@ -225,7 +225,7 @@ printer_state updatePrinterState()
 	if(readPin(&INPUT_REG, BUSY_PIN)) curr_state = BUSY;		// active high
 	if(!readPin(&INPUT_REG, SELECT_PIN)) curr_state = OFFLINE;	// active low
 	if(readPin(&INPUT_REG, PE_PIN)) curr_state = PAPER_END;		// active high - /ERROR and BUSY will also be set
-	if(curr_state == READY) errorState = NO_ERR;	/// *** Don't much like how I'm setting a global here ***
+	if(curr_state == READY) errorState = NO_ERR;
 	return curr_state;
 }
 
