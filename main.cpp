@@ -42,7 +42,7 @@
 #include <uproc/smd_atmega_88_168_328.h>
 #include <smd_avr_i2clib.h>
 #include <smd_avr_seriallib.h>
-#include <ShiftReg74hc595.cpp>
+#include <ShiftReg74hc595.h>
 #include "SP328PB_defines.h"
 #include "SP328PB_general_functions.h"
 #include "SP328PB_display_functions.h"
@@ -126,9 +126,9 @@ printer_state initialisePrinter()
 	SerialPort.clearBuffer();				// clear serial port's input buffer
 	DataRegister.shiftOut(0);				// set data lines to all zeroes
 	setPin(&OUTPUT_PORT, INIT_PIN, LOW);	// send /INIT pulse
-	_delay_us(INIT_PULSE_LENGTH);
-	setPin(&OUTPUT_PORT, INIT_PIN, HIGH);
-	_delay_ms(POST_INIT_DELAY);				// let the printer settle down
+	_delay_us(INIT_PULSE_LENGTH);			// - keep line low
+	setPin(&OUTPUT_PORT, INIT_PIN, HIGH);	// - release line
+	_delay_ms(POST_INIT_DELAY);				// - let the printer settle down
 	updatePrinterState();					// let's see how the printer's doing
 	if(curr_state == READY) setCTS(HIGH);	// tell remote machine we're ready to receive
 	return curr_state;
@@ -169,6 +169,7 @@ printer_state printBuffer()
 printer_state printChar(uint8_t chardata, ack_state waitForACK)
 {
 	updatePrinterState();
+	waitForACK = NO_ACK;	// FOR DEBUGGING ONLY
 	if( !(curr_state == ERROR || curr_state == OFFLINE || curr_state == PAPER_END || errorState == ERR) ) {
 		bool done = false;
 		uint8_t waitTimeoutCounter = 0;
@@ -195,7 +196,7 @@ printer_state printChar(uint8_t chardata, ack_state waitForACK)
 						resetAck();
 					}
 				} else {
-					curr_state = DONE;						// if we decided not to bother with ACK
+					curr_state = DONE;						// we decided not to bother with ACK
 				}
 				done = true;
 			} else {										// curr_state wasn't READY - printer might be busy
@@ -244,7 +245,6 @@ int main(void)
 	SERIAL_DDR |= (1 << CTS_PIN);												// CTS as output
 
 	setCTS(LOW);								// refuse serial data while getting set up
-
 	// Set outputs at initial values
 	setPin(&OUTPUT_PORT, STROBE_PIN, HIGH);		// active low
 	setPin(&OUTPUT_PORT, INIT_PIN, HIGH);		// active low
@@ -277,6 +277,8 @@ int main(void)
 		SerialPort.writeln("LCD_NONE");
 	}
 
+	// displayInit();
+
 	displayMsg(serial_disp_msg[SER_OK], SERIAL);
 
 	bool runloop = true;
@@ -291,14 +293,23 @@ int main(void)
 		//serialport.writeln(err_buf);
 	//} else {
 		// flash the LEDs to show everything went well
+		uint8_t testData = 0;
+		for(uint8_t i=0; i<8; i++) {
+			testData = testData | (1 << i);
+			DataRegister.shiftOut(testData, MSBFIRST);
+			_delay_ms(BOOT_LED_DELAY);
+		}
 		setLED(STAT_LED1_PIN, ON);
-		_delay_ms(150);
-		setLED(STAT_LED1_PIN, OFF);
+		_delay_ms(BOOT_LED_DELAY);
 		setLED(STAT_LED2_PIN, ON);
-		_delay_ms(150);
-		setLED(STAT_LED2_PIN, OFF);
+		_delay_ms(BOOT_LED_DELAY);
 		setLED(STAT_LED3_PIN, ON);
-		_delay_ms(150);
+		_delay_ms(BOOT_LED_DELAY);
+
+		// Turn off LEDs
+		DataRegister.shiftOut(0, MSBFIRST);
+		setLED(STAT_LED1_PIN, OFF);
+		setLED(STAT_LED2_PIN, OFF);
 		setLED(STAT_LED3_PIN, OFF);
 	//}
 

@@ -12,6 +12,8 @@
 #define PRINT_BUF_LEN 255
 #define SERIAL_BAUD_RATE 19200
 
+#define BOOT_LED_DELAY 100
+
 // TIME-OUTS
 // while the ACK pulse lasts around 5us on the Epson, it might take as long as 1ms after
 // the strobe pulse is finished for the ACK pulse to be sent.
