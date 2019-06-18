@@ -6,7 +6,8 @@
 
   Intended for use with an Epson MX-80 F/T III dot matrix printer.
 
-  Also designed to work with the Devantach 40 char x 4-line I2C LDC display.
+  Designed to work with the Devantech 40 char x 4-line I2C LDC display (optional). The code checks
+  for the presence of the display during initialisation.
 
   Epson MX-80 F/T III parallel interface has a transfer rate of 1000 cps.
 
@@ -136,9 +137,6 @@ printer_state initialisePrinter()
 
 printer_state printBuffer()
 {
-	/************************************************************************/
-	/* WHAT ARE WE DOING ABOUT CHECKING THE PAPER END STATE????             */
-	/************************************************************************/
 	setCTS(LOW);							// deter further incoming data
 	curr_state = PRINTING;
 	sendStateMsg();
@@ -244,12 +242,12 @@ int main(void)
 	LED_DDR |= (1 << STAT_LED1_PIN | 1 << STAT_LED2_PIN | 1 << STAT_LED3_PIN);	// LEDS as outputs
 	SERIAL_DDR |= (1 << CTS_PIN);												// CTS as output
 
-	setCTS(LOW);								// refuse serial data while getting set up
 	// Set outputs at initial values
+	setCTS(LOW);								// refuse serial data while getting set up
 	setPin(&OUTPUT_PORT, STROBE_PIN, HIGH);		// active low
 	setPin(&OUTPUT_PORT, INIT_PIN, HIGH);		// active low
-	setPin(&OUTPUT_PORT, AUTOFEED_PIN, LOW);	// active high
-	//setPin(&OUTPUT_PORT, SELIN_PIN, LOW);		// active high
+	setPin(&OUTPUT_PORT, AUTOFEED_PIN, HIGH);	// active low - disable by default
+	setPin(&OUTPUT_PORT, SELIN_PIN, LOW);		// active low - enable by default
 	setLED(STAT_LED1_PIN, OFF);
 	setLED(STAT_LED2_PIN, OFF);
 	setLED(STAT_LED3_PIN, OFF);
@@ -258,31 +256,25 @@ int main(void)
 	printer_state prev_state = curr_state;
 
 	SerialPort.begin();							// initialise serial port
-
 	_delay_ms(250);								// pause to allow everything to stabilise - DO WE NEED THIS?
 
 	SerialPort.clearBuffer();
 	SerialPort.writeln("--");
 	SerialPort.writeln("PRT_START");
 
-	// do we have an LCD panel?
+	// Do we have an LCD panel?
 	lcd_present = !(1 & lcd.checkAlive());
-	//serialport.write("I2C_ERR:"); serialport.writeln(lcd_present);
 	if (lcd_present) {
 		SerialPort.writeln("LCD_OK");
 		displayInit();								// initialise LCD panel
-		uint8_t lcd_version = lcd.readRegister(3);
-		SerialPort.write("LCD_VERSION_"); SerialPort.writeln(lcd_version);
+		SerialPort.write("LCD_VERSION_"); SerialPort.writeln(lcd.readRegister(3));
 	} else {
 		SerialPort.writeln("LCD_NONE");
 	}
 
-	// displayInit();
-
 	displayMsg(serial_disp_msg[SER_OK], SERIAL);
 
 	bool runloop = true;
-	//bool update_serial_state = true;
 	initialisePrinter();	// also sets CTS HIGH again
 	sendStateMsg();
 	//if(curr_state != READY) {
@@ -313,11 +305,11 @@ int main(void)
 		setLED(STAT_LED3_PIN, OFF);
 	//}
 
-
-	EICRA = 0b00001010;		// INT0 & INT1 to trigger on falling edge
+	// Set up interrupts
+	EICRA = 0b00001010;						// INT0 & INT1 to trigger on falling edge
 	EIMSK |= ((1 << INT0) | (1 << INT1));	// enable INT0 & INT1
 	EIFR |= ((1 << INTF0) | (1 << INTF1));	// clear the interrupt flags
-	sei();					// enable global interrupts
+	sei();									// enable global interrupts
 
 	/********************************************************************************
 	*****   MAIN LOOP                                                           *****
@@ -416,16 +408,16 @@ int main(void)
 			//serialstate = SER_OK;			// must have been okay because we've got decent buffer
 			//update_serial_state = true;
 			if(printBuf[0] == 1) {			// SPECIAL COMMAND	
-				switch(printBuf[1]) {		// what's the next byte?
+				switch(printBuf[1]) {		// The next byte is the instruction
 					case 1:					// report printer interface settings
 						if(useAck) {
 							SerialPort.writeln("PIF_ACK_ENABLED");
-							} else {
+						} else {
 							SerialPort.writeln("PIF_ACK_DISABLED");
 						}
 						if(autoLF) {
 							SerialPort.writeln("PIF_LF_ENABLED");
-							} else {
+						} else {
 							SerialPort.writeln("PIF_LF_DISABLED");
 						}
 						break;
@@ -438,11 +430,13 @@ int main(void)
 						SerialPort.writeln("PIF_ACK_DISABLED");
 						break;
 					case 4:
-						autoLF = true;
+						autoLF = true;		// enable AUTOFEED
+						setPin(&OUTPUT_PORT, AUTOFEED_PIN, LOW);
 						SerialPort.writeln("PIF_LF_ENABLED");
 						break;
-					case 5:
+					case 5:					// disable AUTOFEED
 						autoLF = false;
+						setPin(&OUTPUT_PORT, AUTOFEED_PIN, HIGH);
 						SerialPort.writeln("PIF_LF_DISABLED");
 						break;
 					case 32:

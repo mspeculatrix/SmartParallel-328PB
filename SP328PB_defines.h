@@ -1,8 +1,8 @@
 /*
  * SmartParallel328PB_includes.h
  *
- * Created: 6/10/2019 11:14:19 AM
- *  Author: Steve
+ * Macros and enums for SmartParallel.
+ *
  */ 
 
 
@@ -12,7 +12,7 @@
 #define PRINT_BUF_LEN 255
 #define SERIAL_BAUD_RATE 19200
 
-#define BOOT_LED_DELAY 100
+#define BOOT_LED_DELAY 50
 
 // TIME-OUTS
 // while the ACK pulse lasts around 5us on the Epson, it might take as long as 1ms after
@@ -48,9 +48,9 @@
 
 // ----- PRINTER INPUTS -----------------------------------
 // Input pins that trigger interrupts
-#define ACK_PIN			PD2
-#define ERR_PIN			PD3
-#define ERR_REG			PIND
+#define ACK_PIN			PD2		// INT0 interrupt pin
+#define ERR_PIN			PD3		// INT1 interrupt pin
+#define ERR_REG			PIND	// don't need the register for ACK
 #define INPUT_INT_DDR	DDRD
 // Other input pins
 #define BUSY_PIN		PE3
@@ -78,7 +78,6 @@
 #define STAT_LED3_PIN	PD7
 #define LED_REG			PORTD
 #define LED_DDR			DDRD
-
 
 enum printer_state {READY, DONE, INIT, OFFLINE, PRINTING, BUSY, ERROR, PAPER_END, ACK_TIMEOUT, BUSY_TIMEOUT};
 enum serial_state {SER_OK, SER_READ_TO, SER_BUF_CLEARED};

@@ -21,7 +21,7 @@ extern const char * msg_prefix[];
 void displayBuffer();
 void displayInit();
 void displayMsg(const char msg[], lcd_msg_type msg_type);
-void writeCharToLCD(uint8_t chr);
+void _writeCharToLCD(uint8_t chr);
 
 
 void displayBuffer()
@@ -43,7 +43,7 @@ void displayBuffer()
 					done = true;
 					break;
 				default:
-					writeCharToLCD(printBuf[index]);
+					_writeCharToLCD(printBuf[index]);
 					//lcd.sendByte(char(printBuf[index]));
 			}
 			index++;
@@ -79,23 +79,23 @@ void displayMsg(const char msg[], lcd_msg_type msg_type)
 		lcd.sendByte(1);	// x pos : first col
 		lcd.sendByte(0);
 		for(uint8_t i = 0; i < 4; i++) {
-			writeCharToLCD(msg_prefix[msg_type][i]);
+			_writeCharToLCD(msg_prefix[msg_type][i]);
 			//lcd.sendByte(char(msg_prefix[msg_type][i]));
 		}
 		for(uint8_t i = 0; i < strlen(msg); i++) {
-			writeCharToLCD(msg[i]);
+			_writeCharToLCD(msg[i]);
 			//lcd.sendByte(char(msg[i]));
 		}
 		// clear rest of line with spaces
 		for(uint8_t i = strlen(msg); i < 12; i++) {
-			writeCharToLCD(0x20);
+			_writeCharToLCD(0x20);
 			//lcd.sendByte(0x20);	// space
 		}
 		lcd.stop();
 	}
 }
 
-void writeCharToLCD(uint8_t chr)
+void _writeCharToLCD(uint8_t chr)
 {
 	// need to limit the range of characters that are sent to LCD
 	if( (31 < chr && chr < 127) || (159 < chr && chr < 255) ) {
