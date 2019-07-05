@@ -14,6 +14,7 @@
 
 #define BOOT_LED_DELAY 50
 
+#define SERIAL_COMMAND_CHAR 1				// ASCII code used to designate that message is a special command
 // TIME-OUTS
 // while the ACK pulse lasts around 5us on the Epson, it might take as long as 1ms after
 // the strobe pulse is finished for the ACK pulse to be sent.
@@ -82,7 +83,27 @@
 enum printer_state {READY, DONE, INIT, OFFLINE, PRINTING, BUSY, ERROR, PAPER_END, ACK_TIMEOUT, BUSY_TIMEOUT};
 enum serial_state {SER_OK, SER_READ_TO, SER_BUF_CLEARED};
 enum ack_state {ACK, NO_ACK};
-enum error_state {NO_ERR, ERR};
 enum lcd_msg_type {PRINTER, SERIAL};
+
+struct printerState {
+	// inputs
+	uint8_t busy;
+	uint8_t error;
+	uint8_t pe;
+	uint8_t select;
+
+	// outputs
+	uint8_t selectIn;
+	uint8_t autofeed;
+
+	// settings
+	ack_state useAck;
+
+	// current state - for reporting via serial & display
+	ack_state ackstate;
+	printer_state state;
+	//bool LF_received;
+	//bool CR_received;
+} printer;
 
 #endif /* SMARTPARALLEL328PB_DEFINES_H_ */
