@@ -110,17 +110,20 @@ enum printer_state
 	ACK_TIMEOUT,
 	BUSY_TIMEOUT
 };
+
 enum serial_state
 {
 	SER_OK,
 	SER_READ_TO,
 	SER_BUF_CLEARED
 };
+
 enum ack_state
 {
 	ACK,
 	NO_ACK
 };
+
 enum lcd_msg_type
 {
 	PRINTER,
