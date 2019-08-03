@@ -78,7 +78,7 @@
 #define INPUT_DDR DDRE
 
 // ----- Serial Port ------------------------------
-#define CTS_PIN PD4
+#define CTS_PIN PD4			// CTS is active low
 #define SERIAL_REG PORTD
 #define SERIAL_DDR DDRD
 // most of the serial port is on Port D, but RTS is on Port E.

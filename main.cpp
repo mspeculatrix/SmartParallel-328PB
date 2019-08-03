@@ -115,7 +115,7 @@ void clearBuffer()
 
 printer_state initialisePrinter()
 {
-	setCTS(LOW); // deter serial input
+	setCTS(HIGH); // deter serial input
 	resetAck();  // probably not necessary, but what the hell
 	printer.state = INIT;
 	sendStateMsg();						  // show we're initialising
@@ -128,7 +128,7 @@ printer_state initialisePrinter()
 	_delay_ms(POST_INIT_DELAY);			  // - let the printer settle down
 	updatePrinterState();				  // let's see how the printer's doing
 	if (printer.state == READY)
-		setCTS(HIGH); // tell remote machine we're ready to receive
+		setCTS(LOW); // tell remote machine we're ready to receive
 	printer.LF_received = false;
 	printer.CR_received = false;
 	return printer.state;
@@ -136,7 +136,7 @@ printer_state initialisePrinter()
 
 printer_state printBuffer()
 {
-	setCTS(LOW); // deter further incoming data
+	setCTS(HIGH);						// deter further incoming data
 	printer.state = PRINTING;
 	sendStateMsg();
 	setLED(STAT_LED1_PIN, ON);
@@ -163,7 +163,7 @@ printer_state printBuffer()
 	}
 	//if(TESTING) displayBuffer();
 	clearBuffer();
-	setCTS(HIGH); // signal that we're ready to receive again
+	setCTS(LOW); // signal that we're ready to receive again
 	updatePrinterState();
 	setLED(STAT_LED1_PIN, OFF);
 	printer.LF_received = false;
@@ -303,7 +303,7 @@ int main(void)
 	SERIAL_DDR |= (1 << CTS_PIN);														  // CTS as output
 
 	// Set outputs at initial values
-	setCTS(LOW);							// refuse serial data while getting set up
+	setCTS(HIGH);							// active low - refuse serial data while getting set up
 	setPin(&OUTPUT_PORT, STROBE_PIN, HIGH); // active low
 	setPin(&OUTPUT_PORT, INIT_PIN, HIGH);   // active low
 	setAutofeed(HIGH);						// active low - disable by default
@@ -316,9 +316,6 @@ int main(void)
 	setLED(STAT_LED1_PIN, OFF);
 	setLED(STAT_LED2_PIN, OFF);
 	setLED(STAT_LED3_PIN, OFF);
-
-	updatePrinterState();
-	printer_state prev_state = printer.state;
 
 	SerialPort.begin(); // initialise serial port
 	_delay_ms(250);		// pause to allow everything to stabilise - DO WE NEED THIS?
@@ -344,9 +341,6 @@ int main(void)
 
 	displayMsg(serial_disp_msg[SER_OK], SERIAL);
 
-	bool runloop = true;
-	initialisePrinter(); // also sets CTS HIGH again
-	sendStateMsg();
 	//if(curr_state != READY) {
 	////runloop = false;
 	//char err_buf[21];
@@ -355,13 +349,13 @@ int main(void)
 	//serialport.writeln(err_buf);
 	//} else {
 	// flash the LEDs to show everything went well
-	uint8_t testData = 0;
-	for (uint8_t i = 0; i < 8; i++)
-	{
-		testData = testData | (1 << i);
-		DataRegister.shiftOut(testData, MSBFIRST);
-		_delay_ms(BOOT_LED_DELAY);
-	}
+	//uint8_t testData = 0;
+	//for (uint8_t i = 0; i < 8; i++)
+	//{
+		//testData = testData | (1 << i);
+		//DataRegister.shiftOut(testData, MSBFIRST);
+		//_delay_ms(BOOT_LED_DELAY);
+	//}
 	setLED(STAT_LED1_PIN, ON);
 	_delay_ms(BOOT_LED_DELAY);
 	setLED(STAT_LED2_PIN, ON);
@@ -376,6 +370,10 @@ int main(void)
 	setLED(STAT_LED3_PIN, OFF);
 	//}
 
+	initialisePrinter();	// also sets CTS LOW again
+	updatePrinterState();	// also sets CTS LOW if printer ready
+	printer_state prev_state = printer.state;
+	sendStateMsg();
 	// Set up interrupts
 	EICRA = 0b00001010;					   // INT0 & INT1 to trigger on falling edge
 	EIMSK |= ((1 << INT0) | (1 << INT1));  // enable INT0 & INT1
@@ -385,6 +383,7 @@ int main(void)
 	/********************************************************************************
 	*****   MAIN LOOP                                                           *****
 	*********************************************************************************/
+	bool runloop = true;
 	while (runloop)
 	{
 		if (SerialPort.inWaiting())
