@@ -227,15 +227,11 @@ printer_state updatePrinterState()
 	printer.select = readPin(&INPUT_REG, SELECT_PIN); // active high - low indicates offline
 
 	// set overall state
-	if (printer.error) printer.state = ERROR;
+	if (printer.error) printer.state = ERROR;			// but this would be true if BUSY, too
 	if (printer.busy) printer.state = BUSY;
 	if (!printer.select) printer.state = OFFLINE;
 	if (printer.pe) printer.state = PAPER_END;
 
-	//if(!readPin(&ERR_REG, ERR_PIN)) curr_state = ERROR;			// active low
-	//if(readPin(&INPUT_REG, BUSY_PIN)) curr_state = BUSY;		// active high
-	//if(!readPin(&INPUT_REG, SELECT_PIN)) curr_state = OFFLINE;	// active high - low indicates problem
-	//if(readPin(&INPUT_REG, PE_PIN)) curr_state = PAPER_END;		// active high - /ERROR and BUSY will also be set
 	return printer.state;
 }
 
