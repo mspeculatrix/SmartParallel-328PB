@@ -114,7 +114,7 @@ void clearBuffer()
 
 printer_state initialisePrinter()
 {
-	setCTS(HIGH); // deter serial input
+	setCTS(CTS_OFFLINE); // deter serial input
 	resetAck();  // probably not necessary, but what the hell
 	printer.state = INIT;
 	sendStateMsg();						  // show we're initialising
@@ -126,7 +126,7 @@ printer_state initialisePrinter()
 	setPin(&OUTPUT_PORT, INIT_PIN, HIGH); // - release line
 	_delay_ms(POST_INIT_DELAY);			  // - let the printer settle down
 	updatePrinterState();				  // let's see how the printer's doing
-	if (printer.state == READY) setCTS(LOW); // tell remote machine we're ready to receive
+	if (printer.state == READY) setCTS(CTS_ONLINE); // tell remote machine we're ready to receive
 	printer.LF_received = false;
 	printer.CR_received = false;
 	return printer.state;
@@ -134,7 +134,7 @@ printer_state initialisePrinter()
 
 printer_state printBuffer()
 {
-	setCTS(HIGH);						// deter further incoming data
+	setCTS(CTS_OFFLINE);						// deter further incoming data
 	printer.state = PRINTING;
 	sendStateMsg();
 	setLED(STAT_LED1_PIN, ON);
@@ -142,20 +142,23 @@ printer_state printBuffer()
 	bool done = false;
 	while (!done && !printer.error)	{
 		if (printBuf[buf_index] != 0) {
-			printer.state = printChar(printBuf[buf_index], printer.useAck); // print next character
+			printer.state = printChar(printBuf[buf_index], printer.useAck);
 			if (printer.state != DONE) {
 				done = true; // because we've encountered an error
 				SerialPort.writeln(prt_state_disp_msg[printer.state]);
 			}
+			buf_index++;
+			if (buf_index == PRINT_BUF_LEN - 1)	{
+				// we're at the penultimate byte of the buffer, so finished
+				done = true; 
+			}
 		} else {
 			done = true; // we've encountered a 0, hence end of data
 		}
-		buf_index++;
-		if (buf_index == PRINT_BUF_LEN - 1)	done = true; // we're at the penultimate byte of the buffer, so finished
 	}
 	//if(TESTING) displayBuffer();
 	clearBuffer();
-	setCTS(LOW); // signal that we're ready to receive again
+	setCTS(CTS_ONLINE); // signal that we're ready to receive again
 	updatePrinterState();
 	setLED(STAT_LED1_PIN, OFF);
 	printer.LF_received = false;
@@ -275,7 +278,7 @@ int main(void)
 	SERIAL_DDR |= (1 << CTS_PIN);														  // CTS as output
 
 	// Set outputs at initial values
-	setCTS(HIGH);							// active low - refuse serial data while getting set up
+	setCTS(CTS_OFFLINE);							// active low - refuse serial data while getting set up
 	setPin(&OUTPUT_PORT, STROBE_PIN, HIGH); // active low
 	setPin(&OUTPUT_PORT, INIT_PIN, HIGH);   // active low
 	setAutofeed(HIGH);						// active low - disable by default
@@ -339,8 +342,8 @@ int main(void)
 	setLED(STAT_LED3_PIN, OFF);
 	//}
 
-	initialisePrinter();	// also sets CTS LOW again
-	updatePrinterState();	// also sets CTS LOW if printer ready
+	initialisePrinter();	// also sets CTS again
+	updatePrinterState();	// also sets CTS if printer ready
 	printer_state prev_state = printer.state;
 	sendStateMsg();
 	// Set up interrupts
@@ -505,7 +508,8 @@ int main(void)
 						break;
 				}
 				clearBuffer();
-			} else { // not a special command, so it's text to print
+			} else { 
+				// not a special command, so it's text to print
 				printBuffer();
 				sendStateMsg();
 				displayMsg(serial_disp_msg[SER_OK], SERIAL);
