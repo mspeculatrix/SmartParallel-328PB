@@ -126,6 +126,11 @@ enum ack_state
 	NO_ACK
 };
 
+enum autofeed_state {
+	AF_ENABLED,
+	AF_DISABLED
+};
+
 enum lcd_msg_type
 {
 	PRINTER,
@@ -142,7 +147,7 @@ struct printerState
 
 	// outputs
 	uint8_t selectIn;
-	uint8_t autofeed;
+	autofeed_state autofeed;
 
 	// settings
 	ack_state useAck;
@@ -152,8 +157,8 @@ struct printerState
 	// current state - for reporting via serial & display
 	ack_state ackstate;
 	printer_state state;
-	bool LF_received;
-	bool CR_received;
+	printer_state prev_state;
+	bool state_changed;
 } printer;
 
 #endif /* SMARTPARALLEL328PB_DEFINES_H_ */

@@ -31,7 +31,7 @@
 #define TESTING true
 
 #ifndef F_CPU			// if F_CPU was not defined in Project -> Properties
-#define F_CPU 8000000UL // define it now as 8MHz unsigned long - prob change to 16MHz
+#define F_CPU 16000000UL // define it now as 8MHz unsigned long - prob change to 16MHz
 #endif
 #include <avr/io.h>
 #include <string.h>
@@ -80,6 +80,7 @@ printer_state printChar(uint8_t chardata, ack_state waitForACK);
 void resetAck();
 printer_state updatePrinterState();
 
+
 /********************************************************************************
 *****   INTERRUPT HANDLERS                                                  *****
 *********************************************************************************/
@@ -117,6 +118,8 @@ printer_state initialisePrinter()
 	setCTS(CTS_OFFLINE); // deter serial input
 	resetAck();  // probably not necessary, but what the hell
 	printer.state = INIT;
+	printer.prev_state = INIT;
+	printer.state_changed = false;
 	sendStateMsg();						  // show we're initialising
 	clearBuffer();						  // clear the print data buffer
 	SerialPort.clearBuffer();			  // clear serial port's input buffer
@@ -127,8 +130,6 @@ printer_state initialisePrinter()
 	_delay_ms(POST_INIT_DELAY);			  // - let the printer settle down
 	updatePrinterState();				  // let's see how the printer's doing
 	if (printer.state == READY) setCTS(CTS_ONLINE); // tell remote machine we're ready to receive
-	printer.LF_received = false;
-	printer.CR_received = false;
 	return printer.state;
 }
 
@@ -156,22 +157,20 @@ printer_state printBuffer()
 			done = true; // we've encountered a 0, hence end of data
 		}
 	}
-	//if(TESTING) displayBuffer();
 	clearBuffer();
 	setCTS(CTS_ONLINE); // signal that we're ready to receive again
-	updatePrinterState();
 	setLED(STAT_LED1_PIN, OFF);
-	printer.LF_received = false;
-	printer.CR_received = false;
+	updatePrinterState();
 	return printer.state;
 }
 
 printer_state printChar(uint8_t chardata, ack_state waitForACK)
 {
 	updatePrinterState();
-	waitForACK = NO_ACK; // FOR DEBUGGING ONLY
-	if (!(printer.state == ERROR || printer.state == OFFLINE || printer.state == PAPER_END || !printer.error))
-	{
+	if (printer.state == ERROR || printer.state == OFFLINE || printer.state == PAPER_END || printer.error) {
+		 if(TESTING) SerialPort.write("- printer is not ready - state: ");
+		 if(TESTING) SerialPort.writeln(printer.state);
+	 } else {
 		bool done = false;
 		uint8_t waitTimeoutCounter = 0;
 		while (!done) {
@@ -220,8 +219,17 @@ void resetAck()
 	EIFR = (1 << INTF0); // clear the interrupt flag to be sure
 }
 
+/*
+	The possible states this can return are:
+		READY 		- only one where CTS should be CTS_ONLINE
+		ERROR
+		BUSY
+		OFFLINE
+		PAPER_END
+*/
 printer_state updatePrinterState()
 {
+	setCTS(CTS_OFFLINE);			// do this to be on the safe side
 	// read state of input pins
 	printer.state = READY;							  // let's be optimistic
 	printer.busy = readPin(&INPUT_REG, BUSY_PIN);	 // active high
@@ -234,7 +242,11 @@ printer_state updatePrinterState()
 	if (printer.busy) printer.state = BUSY;
 	if (!printer.select) printer.state = OFFLINE;
 	if (printer.pe) printer.state = PAPER_END;
-
+	if (printer.state == READY) setCTS(CTS_ONLINE);
+	if (printer.state != printer.prev_state) {
+		printer.state_changed = true;
+		printer.prev_state = printer.state;
+	}
 	return printer.state;
 }
 
@@ -244,21 +256,21 @@ void setSelectIn(uint8_t hilo)
 	printer.selectIn = hilo;			   // store state
 }
 
-void setAutofeed(uint8_t hilo)
+void setAutofeed(autofeed_state af_state)
 {
 	// autofeed is active low, but we usually want it disabled
-	setPin(&OUTPUT_PORT, AUTOFEED_PIN, hilo);
-	printer.autofeed = hilo;
+	setPin(&OUTPUT_PORT, AUTOFEED_PIN, af_state);
+	printer.autofeed = af_state;
 }
 
 void disableAutofeed(void)
 {
-	setAutofeed(HIGH);
+	setAutofeed(AF_DISABLED);
 }
 
 void enableAutofeed(void)
 {
-	setAutofeed(LOW);
+	setAutofeed(AF_ENABLED);
 }
 
 int main(void)
@@ -267,7 +279,7 @@ int main(void)
 	*****   SETUP                                                               *****
 	*********************************************************************************/
 
-	SerialPort.useNullTerminator(true);
+	//SerialPort.useNullTerminator(true);
 
 	// Set pin directions
 	SHIFTREG_DDR |= (1 << SHCP_PIN | 1 << STCP_PIN | 1 << DATA_PIN);					  // shift reg pins as outputs
@@ -281,10 +293,10 @@ int main(void)
 	setCTS(CTS_OFFLINE);							// active low - refuse serial data while getting set up
 	setPin(&OUTPUT_PORT, STROBE_PIN, HIGH); // active low
 	setPin(&OUTPUT_PORT, INIT_PIN, HIGH);   // active low
-	setAutofeed(HIGH);						// active low - disable by default
+	setAutofeed(AF_DISABLED);				// active low - disable by default
 	setSelectIn(LOW);						// active low - enable by default
 	printer.ackstate = NO_ACK;
-	printer.useAck = NO_ACK;
+	printer.useAck = ACK;
 	printer.addCR = false;
 	printer.addLF = false;
 
@@ -306,6 +318,7 @@ int main(void)
 		displayInit(); // initialise LCD panel
 		char msg_buf[21];
 		sprintf(msg_buf, "LCD_VERSION_%i", lcd.readRegister(3));
+		displayText(msg_buf, 1);
 		SerialPort.writeln(msg_buf);
 	} else {
 		SerialPort.writeln("LCD_NONE");
@@ -313,21 +326,6 @@ int main(void)
 
 	displayMsg(serial_disp_msg[SER_OK], SERIAL);
 
-	//if(curr_state != READY) {
-	////runloop = false;
-	//char err_buf[21];
-	//sprintf(err_buf, "HALT/%s", prt_state_disp_msg[curr_state]);
-	//displayMsg(err_buf, PRINTER);
-	//serialport.writeln(err_buf);
-	//} else {
-	// flash the LEDs to show everything went well
-	//uint8_t testData = 0;
-	//for (uint8_t i = 0; i < 8; i++)
-	//{
-		//testData = testData | (1 << i);
-		//DataRegister.shiftOut(testData, MSBFIRST);
-		//_delay_ms(BOOT_LED_DELAY);
-	//}
 	setLED(STAT_LED1_PIN, ON);
 	_delay_ms(BOOT_LED_DELAY);
 	setLED(STAT_LED2_PIN, ON);
@@ -340,12 +338,11 @@ int main(void)
 	setLED(STAT_LED1_PIN, OFF);
 	setLED(STAT_LED2_PIN, OFF);
 	setLED(STAT_LED3_PIN, OFF);
-	//}
 
 	initialisePrinter();	// also sets CTS again
 	updatePrinterState();	// also sets CTS if printer ready
-	printer_state prev_state = printer.state;
 	sendStateMsg();
+
 	// Set up interrupts
 	EICRA = 0b00001010;					   // INT0 & INT1 to trigger on falling edge
 	EIMSK |= ((1 << INT0) | (1 << INT1));  // enable INT0 & INT1
@@ -356,10 +353,8 @@ int main(void)
 	*****   MAIN LOOP                                                           *****
 	*********************************************************************************/
 	bool runloop = true;
-	while (runloop)
-	{
-		if (SerialPort.inWaiting())
-		{
+	while (runloop) {
+		if (SerialPort.inWaiting()) {
 			// We have serial data waiting. We're assuming a string terminated with a null.
 			// Any characters after a null will be ignored this time through the loop.
 			//update_serial_state = true;
@@ -372,8 +367,8 @@ int main(void)
 			// encountered an error.
 			while (!buf_ready && !ser_err && buf_index < PRINT_BUF_LEN) {
 				//serialport.write("'");
-				bool gotByte = false;		// have we retrieved a byte from input?
-				uint8_t byte = 0;			// value for current byte. Default to terminator.
+				bool gotByte = false;
+				uint8_t byte = 0;			// to hold value for current byte. Default to terminator.
 				uint32_t no_data_count = 0; // for timeout
 				while (!gotByte && !ser_err) {
 					byte = SerialPort.readByte();
@@ -381,8 +376,7 @@ int main(void)
 						gotByte = true;
 					} else {
 						no_data_count++;
-						if (no_data_count >= SERIAL_TIMEOUT_LOOP_COUNTER)
-						{
+						if (no_data_count >= SERIAL_TIMEOUT_LOOP_COUNTER) {
 							ser_err = true;
 							SerialPort.writeln(serial_comm_msg[SER_READ_TO]);
 							displayMsg(serial_disp_msg[SER_READ_TO], SERIAL);
@@ -399,66 +393,46 @@ int main(void)
 							buf_ready = true;
 							break;
 						case 10: // newline 0x0A
-							//printer.LF_received = true;
-							if (printer.autofeed) {
-								// The printer is set to issue a linefeed whenever it receives a
-								// carriage return. In that case, we'll ignore linefeeds
-								// -- do nothing here --
-							} else {
+							if(printer.autofeed == AF_DISABLED) {							
+								// The printer is NOT set to issue a linefeed whenever it receives a
+								// carriage return, so include linefeed character in buffer.
 								printBuf[buf_index] = byte; // add newline to buffer
 							}
-							// if(buf_index < PRINT_BUF_LEN - 2) {
-							// 	// there are still at least 2 bytes left in buffer
-							// 	printBuf[buf_index + 1] = 13;	// add a carriage return
-							// 	printBuf[buf_index + 2] = 0;	// also add null termination
-							// } else {
-							// 	printBuf[buf_index + 1] = 0;	// we're at penultimate byte - last one has to be null
-							// }
-							// buf_ready = true;
 							break;
-						// case 13:							// carriage return 0x0D
-						// 	printer.CR_received = true;
-						// 	printBuf[buf_index] = byte;		// keep CR in string
-						// 	if(buf_index < PRINT_BUF_LEN - 2) {
-						// 		// there are still at least 2 bytes left in buffer
-						// 		if(printer.autofeed) {
-						// 			// the newline will be added by the printer
-						// 			printBuf[buf_index + 1] = 0;
-						// 		} else {
-						// 			printBuf[buf_index + 1] = 10;	// add a newline
-						// 			printBuf[buf_index + 2] = 0;	// also add null termination
-						// 		}
-						// 	} else {
-						// 		printBuf[buf_index + 1] = 0;	// we're at penultimate byte - last one has to be null
-						// 	}
-						// 	buf_ready = true;
-						// 	break;
 						default:
 							printBuf[buf_index] = byte;
-							// check on buffer length
-							if (buf_index == PRINT_BUF_LEN - 2) {
-								// We're at the penultimate element in the array.
-								// The next one must be a terminator.
-								printBuf[buf_index + 1] = 0;
-								buf_ready = true;
-							} else {
-								buf_index++;
-								//serialport.write(".");
-							}
 							break;
 					} // /switch
+					// check on buffer length						
+					if (buf_index == PRINT_BUF_LEN - 2) {
+						// We're at the penultimate element in the array.
+						// The next one must be a terminator.
+						printBuf[buf_index + 1] = 0;
+						buf_ready = true;
+					} else {
+						buf_index++;
+						//serialport.write(".");
+					}
 				} else {
-					if (TESTING)
-						SerialPort.writeln("*** serial error ***");
+					if (TESTING) SerialPort.writeln("*** serial error ***");
 				}
 			}
 			setLED(STAT_LED2_PIN, OFF);
 		}
 
 		if (buf_ready && buf_index > 0 && !printer.error) {
-			if (TESTING) SerialPort.writeln("Buffer ready");
-			//serialstate = SER_OK;			// must have been okay because we've got decent buffer
-			//update_serial_state = true;
+			//if (TESTING) {
+				//SerialPort.writeln("- buffer ready");
+				//bool testdone = false;
+				//int bufidx = 0;
+				//while(!testdone) {
+					//SerialPort.write(printBuf[bufidx]);
+					//SerialPort.write(" ");
+					//bufidx++;
+					//if(printBuf[bufidx] == 0) testdone = true;
+				//}
+				//SerialPort.writeln("<");
+			//}
 			if (printBuf[0] == SERIAL_COMMAND_CHAR)	{ // SPECIAL COMMAND
 				switch (printBuf[1]) { // The next byte is the instruction
 					case CMD_PING: // SERIAL STUFF
@@ -473,13 +447,13 @@ int main(void)
 						SerialPort.writeln("PIF_ACK_ENABLED");
 						break;
 					case CMD_AUTOFEED_DISABLE: // disable AUTOFEED
-						printer.autofeed = false;
-						setPin(&OUTPUT_PORT, AUTOFEED_PIN, HIGH);
+						printer.autofeed = AF_DISABLED;
+						setPin(&OUTPUT_PORT, AUTOFEED_PIN, AF_DISABLED);
 						SerialPort.writeln("PIF_LF_DISABLED");
 						break;
 					case CMD_AUTOFEED_ENABLE:
-						printer.autofeed = true; // enable AUTOFEED
-						setPin(&OUTPUT_PORT, AUTOFEED_PIN, LOW);
+						printer.autofeed = AF_ENABLED; // enable AUTOFEED
+						setPin(&OUTPUT_PORT, AUTOFEED_PIN, AF_ENABLED);
 						SerialPort.writeln("PIF_LF_ENABLED");
 						break;
 					case CMD_PRT_MODE_NORMAL:
@@ -515,11 +489,11 @@ int main(void)
 				displayMsg(serial_disp_msg[SER_OK], SERIAL);
 			}
 		}
-
 		updatePrinterState();
-		if (printer.state != prev_state) {
+		if (printer.state_changed) {
+			//SerialPort.write("printer.state: "); SerialPort.write(printer.state); SerialPort.write(" - prev_state: "); SerialPort.writeln(printer.prev_state);
 			sendStateMsg();
-			prev_state = printer.state;
+			printer.state_changed = false;
 		}
-	}
-}
+	} // main while loop
+} // main

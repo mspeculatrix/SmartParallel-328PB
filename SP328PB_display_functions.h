@@ -69,6 +69,12 @@ void displayInit()
 	lcd.stop();
 }
 
+/**
+displayMsg(const char[], lcd_msg_type)
+Display either a serial message or printer message, with the appropriate prefix.
+Printer messages are displayed on the top line, serial on the bottom. 
+***** SHould change this to be a wrapper to displayText below *****
+**/
 void displayMsg(const char msg[], lcd_msg_type msg_type)
 {
 	if(lcd_present) {
@@ -82,6 +88,33 @@ void displayMsg(const char msg[], lcd_msg_type msg_type)
 			_writeCharToLCD(msg_prefix[msg_type][i]);
 			//lcd.sendByte(char(msg_prefix[msg_type][i]));
 		}
+		for(uint8_t i = 0; i < strlen(msg); i++) {
+			_writeCharToLCD(msg[i]);
+			//lcd.sendByte(char(msg[i]));
+		}
+		// clear rest of line with spaces
+		for(uint8_t i = strlen(msg); i < 12; i++) {
+			_writeCharToLCD(0x20);
+			//lcd.sendByte(0x20);	// space
+		}
+		lcd.stop();
+	}
+}
+
+/**
+
+@param line	should be 1 or 2 
+**/
+void displayText(const char msg[], uint8_t line)
+{
+	if(lcd_present) {
+		if(line < 1 || line > 2) line = 1;
+		lcd.start(I2C_WRITE_MODE);
+		lcd.sendByte(0);
+		lcd.sendByte(3);
+		lcd.sendByte(line);	// y pos
+		lcd.sendByte(1);	// x pos : first col
+		lcd.sendByte(0);
 		for(uint8_t i = 0; i < strlen(msg); i++) {
 			_writeCharToLCD(msg[i]);
 			//lcd.sendByte(char(msg[i]));
