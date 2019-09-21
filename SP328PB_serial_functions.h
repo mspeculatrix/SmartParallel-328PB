@@ -26,7 +26,12 @@ void sendStateMsg()
 
 void setCTS(uint8_t hilo)
 {
-	setPin(&SERIAL_REG, CTS_PIN, hilo);
+	//setPin(&SERIAL_REG, CTS_PIN, hilo);
+	if(hilo == HIGH) {
+		SERIAL_REG |= (1 << CTS_PIN);
+	} else {
+		SERIAL_REG &= ~(1 << CTS_PIN);
+	}
 }
 
 

@@ -77,10 +77,10 @@
 #define INPUT_REG PINE
 #define INPUT_DDR DDRE
 
-// ----- Serial Port ------------------------------
+// ----- SERIAL PORT ------------------------------
 #define CTS_PIN PD4			
-#define CTS_ONLINE LOW		// CTS is active low
-#define CTS_OFFLINE HIGH
+#define CTS_ONLINE 0		// CTS is active low
+#define CTS_OFFLINE 1
 #define SERIAL_REG PORTD
 #define SERIAL_DDR DDRD
 // most of the serial port is on Port D, but RTS is on Port E.
