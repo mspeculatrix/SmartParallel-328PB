@@ -11,6 +11,18 @@
 
   Epson MX-80 F/T III parallel interface has a transfer rate of 1000 cps.
 
+  Colours for LEDs:
+	Status LEDs:
+		Printing			GREEN
+		Serial Recv			YELLOW
+		Stat3 (poss. error)	RED
+	Interface LEDS:
+		Error				RED
+		Offline				ORANGE
+		Autofeed			BLUE
+		Busy				GREEN
+
+	
   Codes supported by Epson MX-80 & Devantech LCD include:
 				EPSON						LCD
   7		0x07	BEL - Bell					-- does nothing
@@ -52,22 +64,29 @@
 /********************************************************************************
 *****   GLOBALS                                                             *****
 *********************************************************************************/
+// printer messages for displaying on the LCD
 const char *prt_state_disp_msg[] = {"READY", "DONE", "INITIALISING", "OFFLINE", "PRINTING", "BUSY", "ERROR", "PAPER_END", "ACK TIMEOUT", "BUSY TIMEOUT"};
+// matching printer messages for sending via serial to the client
 const char *prt_state_comm_msg[] = {"PRT_READY", "PRT_DONE", "PRT_INIT", "PRT_OFFLINE", "PRT_PRINTING", "PRT_BUSY", "PRT_ERROR", "PRT_PE", "PRT_ACK_TIMEOUT", "PRT_BUSY_TIMEOUT"};
 
+// serial port messages for displaying on the LCD
 const char *serial_disp_msg[] = {"OK", "READ TIMEOUT", "BUF CLEARED"};
+// matching serial port messages for sending to the client via serial
 const char *serial_comm_msg[] = {"SER_OK", "SER_READ_TIMEOUT", "SER_BUF_CLEARED"};
-
+// prefixes to use when displaying messages on the LCD
 const char *msg_prefix[] = {"Prt:", "Ser:"};
 
+// LCD object - I'm using a Devantech 20x2 module which has its own I2C backpack
 SMD_I2C_Device lcd = SMD_I2C_Device(LCD_ADDRESS, I2C_BUS_SPEED_STD);
+// Serial port object
 SMD_AVR_Serial SerialPort = SMD_AVR_Serial(SERIAL_BAUD_RATE); // default baudrate 19200
+// Shift register object - the shift reg handles data output to the printer
 ShiftReg74hc595 DataRegister = ShiftReg74hc595(SHCP_PIN, STCP_PIN, DATA_PIN, &SHIFTREG_REG, &SHIFTREG_DDR);
 
 char printBuf[PRINT_BUF_LEN]; // line buffer of which last element will always be null terminator
 uint8_t buf_index = 0;
 bool buf_ready = false;
-bool lcd_present = false; // assume no display
+bool lcd_present = false;     // assume no display
 
 /********************************************************************************
 *****   FORWARD DECLARATIONS                                                *****
@@ -100,6 +119,9 @@ ISR(INT1_vect) // for /ERROR line
 *****   PRINTER FUNCTIONS                                                   *****
 *********************************************************************************/
 
+/**
+Set all bytes in printer buffer to 0. 
+**/
 void clearBuffer()
 {
 	for (uint8_t i = 0; i < PRINT_BUF_LEN; i++) {
@@ -112,8 +134,8 @@ void clearBuffer()
 
 printer_state initialisePrinter()
 {
-	setCTS(CTS_OFFLINE); // deter serial input
-	resetAck();  // probably not necessary, but what the hell
+	setCTS(CTS_OFFLINE);		// deter serial input
+	resetAck();					// probably not necessary, but what the hell
 	printer.state = INIT;
 	printer.prev_state = INIT;
 	printer.state_changed = false;
@@ -133,8 +155,8 @@ void printBuffer()
 {
 	setCTS(CTS_OFFLINE);						// deter further incoming data
 	printer.state = PRINTING;
-	sendStateMsg();
-	setLED(STAT_LED1_PIN, ON);
+	sendStateMsg();								// update display & send serial message
+	setLED(STAT_PRINTING, ON);
 	uint8_t buf_index = 0;
 	bool done = false;
 	while (!done && !printer.error)	{
@@ -155,7 +177,7 @@ void printBuffer()
 	}
 	clearBuffer();
 	updatePrinterState();
-	setLED(STAT_LED1_PIN, OFF);
+	setLED(STAT_PRINTING, OFF);
 	//return printer.state;
 }
 
@@ -282,7 +304,7 @@ int main(void)
 	OUTPUT_DDR |= (1 << STROBE_PIN | 1 << INIT_PIN | 1 << AUTOFEED_PIN | 1 << SELIN_PIN); // outputs
 	INPUT_DDR &= ~(1 << BUSY_PIN | 1 << PE_PIN | 1 << SELECT_PIN);						  // BUSY, PE & SEL as inputs
 	INPUT_INT_DDR &= ~(1 << ACK_PIN | 1 << ERR_PIN);									  // ACK and ERR as inputs
-	LED_DDR |= (1 << STAT_LED1_PIN | 1 << STAT_LED2_PIN | 1 << STAT_LED3_PIN);			  // LEDS as outputs
+	LED_DDR |= (1 << STAT_PRINTING | 1 << STAT_SERIAL_RECV | 1 << STAT_LED3);			  // LEDS as outputs
 	SERIAL_DDR |= (1 << CTS_PIN);														  // CTS as output
 
 	// Set outputs at initial values
@@ -296,9 +318,9 @@ int main(void)
 	printer.addCR = false;
 	printer.addLF = false;
 
-	setLED(STAT_LED1_PIN, OFF);
-	setLED(STAT_LED2_PIN, OFF);
-	setLED(STAT_LED3_PIN, OFF);
+	setLED(STAT_PRINTING, OFF);
+	setLED(STAT_SERIAL_RECV, OFF);
+	setLED(STAT_LED3, OFF);
 
 	SerialPort.begin(); // initialise serial port
 	_delay_ms(250);		// pause to allow everything to stabilise - DO WE NEED THIS?
@@ -322,18 +344,18 @@ int main(void)
 
 	displayMsg(serial_disp_msg[SER_OK], SERIAL);
 
-	setLED(STAT_LED1_PIN, ON);
+	setLED(STAT_PRINTING, ON);
 	_delay_ms(BOOT_LED_DELAY);
-	setLED(STAT_LED2_PIN, ON);
+	setLED(STAT_SERIAL_RECV, ON);
 	_delay_ms(BOOT_LED_DELAY);
-	setLED(STAT_LED3_PIN, ON);
+	setLED(STAT_LED3, ON);
 	_delay_ms(BOOT_LED_DELAY);
 
 	// Turn off LEDs
 	DataRegister.shiftOut(0, MSBFIRST);
-	setLED(STAT_LED1_PIN, OFF);
-	setLED(STAT_LED2_PIN, OFF);
-	setLED(STAT_LED3_PIN, OFF);
+	setLED(STAT_PRINTING, OFF);
+	setLED(STAT_SERIAL_RECV, OFF);
+	setLED(STAT_LED3, OFF);
 
 	initialisePrinter();	// also sets CTS again
 	updatePrinterState();	// also sets CTS if printer ready
@@ -355,7 +377,7 @@ int main(void)
 			// Any characters after a null will be ignored this time through the loop.
 			//update_serial_state = true;
 			//setCTS(CTS_OFFLINE);
-			setLED(STAT_LED2_PIN, ON);
+			setLED(STAT_SERIAL_RECV, ON);
 			bool ser_err = false;
 			// Loop, grabbing a byte at a time from the serial input.
 			// Keep going until we've got a sensible string (ie, we've encountered
@@ -411,11 +433,13 @@ int main(void)
 					if (TESTING) SerialPort.writeln("*** serial error ***");
 				}
 			}
-			setLED(STAT_LED2_PIN, OFF);
+			setLED(STAT_SERIAL_RECV, OFF);
 		}
 
 		if (buf_ready && buf_index > 0 && !printer.error) {
-			if (printBuf[0] == SERIAL_COMMAND_CHAR)	{ // SPECIAL COMMAND
+			// Is this message a regular bit of text to be printed, or is it a command
+			// that the client can use to interact with the SmartParallel?
+			if (printBuf[0] == SERIAL_COMMAND_CHAR)	{				// It's a  command.
 				switch (printBuf[1]) { // The next byte is the instruction
 					case CMD_PING: // SERIAL STUFF
 						SerialPort.writeln("SER_PONG");
@@ -444,19 +468,19 @@ int main(void)
 						break;
 					case CMD_PRT_MODE_DBL:
 						break;
-					case CMD_REPORT_STATE:
+					case CMD_REPORT_STATE:		// report printer state back to client
 						updatePrinterState();
 						sendStateMsg();
 						displayText("Sent report",2);
 						break;
-					case CMD_REPORT_ACK:
+					case CMD_REPORT_ACK:		// report status of ACK setting to client
 						if (printer.useAck) {
 							SerialPort.writeln("PIF_ACK_ENABLED");
 						} else {
 							SerialPort.writeln("PIF_ACK_DISABLED");
 						}
 						break;
-					case CMD_REPORT_AUTOFEED:
+					case CMD_REPORT_AUTOFEED:	// report status of AUTOFEED setting to client
 						if (printer.autofeed) {
 							SerialPort.writeln("PIF_AF_ENABLED");
 						} else {
@@ -466,12 +490,15 @@ int main(void)
 				}
 				clearBuffer();
 			} else { 
-				// not a special command, so it's text to print
+				// It's not a special command, so it's text to print
 				printBuffer();
 				sendStateMsg();
 				displayMsg(serial_disp_msg[SER_OK], SERIAL);
 			}
 		}
+
+		// Keep checking the status of the printer. If it changes, report the 
+		// new state to the client and the LCD display.
 		updatePrinterState();
 		if (printer.state_changed) {
 			sendStateMsg();

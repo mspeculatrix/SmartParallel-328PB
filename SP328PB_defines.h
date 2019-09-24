@@ -38,7 +38,7 @@
 #define ACK_TIMEOUT_LOOP_DELAY 1	  // us - microseconds
 #define ACK_TIMEOUT_LOOP_COUNTER 1000 // xACK_TIMEOUT_LOOP_DELAY
 
-#define BUSY_TIMEOUT_LOOP_DELAY 10	// milliseconds
+#define BUSY_TIMEOUT_LOOP_DELAY 10	  // milliseconds
 #define BUSY_TIMEOUT_LOOP_COUNTER 200 // xBUSY_TIMEOUT_LOOP_DELAY
 
 #define SERIAL_TIMEOUT_LOOP_COUNTER 1710000 // 570000 = 1 sec (approx)
@@ -93,9 +93,9 @@
 #define LCD_ADDRESS 0xC6
 
 // ----- LEDS -------------------------------------
-#define STAT_LED1_PIN PD5
-#define STAT_LED2_PIN PD6
-#define STAT_LED3_PIN PD7
+#define STAT_PRINTING    PD5	// indicates SP is printing
+#define STAT_SERIAL_RECV PD6	// SP is receiving serial data
+#define STAT_LED3        PD7
 #define LED_REG PORTD
 #define LED_DDR DDRD
 
