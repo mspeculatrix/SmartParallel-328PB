@@ -207,8 +207,10 @@ printer_state printChar(uint8_t chardata, ack_state waitForACK)
 						timeout_count++;
 					}
 					if (printer.ackstate == NO_ACK)	{
+						// we exited the loop above but still no ACK, so it must have been a timeout
 						printer.state = ACK_TIMEOUT;
 					} else {
+						// we exited the loop above because ACK got set
 						printer.state = DONE;
 						resetAck();
 					}
