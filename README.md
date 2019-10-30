@@ -47,11 +47,14 @@ PRT_ACK_TIMEOUT - the interface timed out while waiting for an ACK signal from t
 
 PRT_BUSY_TIMEOUT - having sent a character to the printer, the printer has been sending a 'busy' signal for a suspiciously long time, so an error has probably occurred.
 
+If an LCD display is fitted, similar messages are sent to that.
+
 ### Commands
 
 Commands are sent by making the first byte ASCII 1. The next byte is the command.
 
-<pre>**Cmd 	Function**
+<pre>
+**Cmd 	Function**
 (Dec)
 
 1	PING - prompts the SP to send back the string SER_PONG.
