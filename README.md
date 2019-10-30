@@ -35,29 +35,29 @@ Commands are sent by making the first byte ASCII 1. The next byte is the command
 
 2    DISABLE ACK - tell SP not to use the ACK signal when talking to printer. Responds with message: PIF_ACK_DISABLED
 
-3 			ENABLE ACK - tell SP to use the ACK signal when taling to printer. Responds with message: PIF_ACK_ENABLED
+3 	ENABLE ACK - tell SP to use the ACK signal when taling to printer. Responds with message: PIF_ACK_ENABLED
 
-4			AUTOFEED DISABLE - turn off Autofeed on the printer. Responds with message: PIF_AF_DISABLED
+4	AUTOFEED DISABLE - turn off Autofeed on the printer. Responds with message: PIF_AF_DISABLED
 
-5			AUTOFEED ENABLE - turn on Autofeed on the printer. Responds with message: PIF_AF_DISABLED
+5	AUTOFEED ENABLE - turn on Autofeed on the printer. Responds with message: PIF_AF_DISABLED
 
-8			PRINT MODE NORMAL - set standard 80-column mode
+8	PRINT MODE NORMAL - set standard 80-column mode
 
-9			PRINT MODE CONDENSED - set condesned 132-column mode
+9	PRINT MODE CONDENSED - set condesned 132-column mode
 
-10			PRINT MODE DOUBLE - set enlarged 40-column mode
+10	PRINT MODE DOUBLE - set enlarged 40-column mode
 
-16			LINE END NORMAL - don't add anything to the lines of text received
+16	LINE END NORMAL - don't add anything to the lines of text received
 
-17			LINE END LF - add linefeed (ASCII 10) to lines received
+17	LINE END LF - add linefeed (ASCII 10) to lines received
 
-18			LINE FEED CR - add carriage return (ASCII 13) to lines received
+18	LINE FEED CR - add carriage return (ASCII 13) to lines received
 
-19			LINE FEED CR-LF - add linefeed & carriage return to lines received
+19	LINE FEED CR-LF - add linefeed & carriage return to lines received
 
-32 			REPORT STATE - request status report on printer
+32 	REPORT STATE - request status report on printer
 
-33 			REPORT ACK - request state of ACK/NO ACK setting. Responds with message: PIF_ACK_ENABLED or PIF_ACK_DISABLED
+33 	REPORT ACK - request state of ACK/NO ACK setting. Responds with message: PIF_ACK_ENABLED or PIF_ACK_DISABLED
 
-34 			REPORT AF - request state of Autofeed setting. Responds with message: PIF_AF_ENABLED or PIF_AF_DISABLED</pre>
+34 	REPORT AF - request state of Autofeed setting. Responds with message: PIF_AF_ENABLED or PIF_AF_DISABLED</pre>
 
