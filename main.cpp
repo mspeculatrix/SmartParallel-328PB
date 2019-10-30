@@ -78,6 +78,9 @@ const char *serial_comm_msg[] = {"SER_OK", "SER_READ_TIMEOUT", "SER_BUF_CLEARED"
 // prefixes to use when displaying messages on the LCD
 const char *msg_prefix[] = {"Prt:", "Ser:"};
 
+// sequences to set tab positions
+//const int set_tabs[] = {27, 68, 4, 8 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 0};
+
 // LCD object - I'm using a Devantech 20x2 module which has its own I2C backpack
 SMD_I2C_Device lcd = SMD_I2C_Device(LCD_ADDRESS, I2C_BUS_SPEED_STD);
 // Serial port object
@@ -131,7 +134,6 @@ void clearBuffer()
 	}
 	buf_index = 0;
 	buf_ready = false;
-	//SerialPort.clearBuffer();
 }
 
 void initialisePrinter()
@@ -322,6 +324,7 @@ int main(void)
 	printer.useAck = ACK;
 	printer.addCR = false;
 	printer.addLF = false;
+	printer.tabsize = DEFAULT_TAB_SIZE;
 
 	setLED(STAT_PRINTING, OFF);
 	setLED(STAT_SERIAL_RECV, OFF);
@@ -416,7 +419,19 @@ int main(void)
 							printBuf[buf_index] = byte; // add null termination to string
 							buf_ready = true;
 							break;
-						case 10: // linefeed/newline 0x0A
+						case 9:							// TAB - replace with spaces
+						case 137:
+							if(buf_index < PRINT_BUF_LEN - printer.tabsize + 1) {
+								for(uint8_t i = 0; i < printer.tabsize; i++) {
+									printBuf[buf_index + i] = 32;
+								}
+								buf_index = buf_index + printer.tabsize - 1;
+							} else {
+								// too near the end of the buffer - replace with single space
+								printBuf[buf_index] = 32;
+							}
+							break;
+						case 10:						// linefeed/newline 0x0A
 							if(printer.autofeed == AF_DISABLED) {							
 								// The printer is NOT set to issue a linefeed whenever it receives a
 								// carriage return, so include linefeed character in buffer.

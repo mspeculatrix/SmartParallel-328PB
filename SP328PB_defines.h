@@ -12,6 +12,7 @@
 #define SERIAL_BAUD_RATE 19200
 
 #define BOOT_LED_DELAY 50
+#define DEFAULT_TAB_SIZE 4
 
 #define SERIAL_COMMAND_CHAR 1 // ASCII for command mode
 // Commands in command mode
@@ -30,7 +31,6 @@
 #define CMD_REPORT_STATE		32
 #define CMD_REPORT_ACK			33
 #define CMD_REPORT_AUTOFEED		34
-
 
 // TIME-OUTS
 // while the ACK pulse lasts around 5us on the Epson, it might take as long as 1ms after
@@ -142,6 +142,7 @@ struct printerState
 	uint8_t error;
 	uint8_t pe;
 	uint8_t select;
+	uint8_t tabsize;
 
 	// outputs
 	uint8_t selectIn;
