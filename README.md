@@ -23,7 +23,7 @@ Either way, the message must be terminated with a null character (ASCII 0). If b
 
 Commands are sent by making the first byte ASCII 1. Any incoming bytes where the first one isn't a 1 are assumed to be text to print.
 
-###Commands
+### Commands
 
 Commands are sent by making the first byte ASCII 1. The next byte is the command.
 
@@ -37,27 +37,27 @@ Cmd byte 	Function
 
 3 			ENABLE ACK - tell SP to use the ACK signal when taling to printer
 
-4
+4			AUTOFEED DISABLE - turn off Autofeed on the printer
 
-5
+5			AUTOFEED ENABLE - turn on Autofeed on the printer
 
-8
+8			PRINT MODE NORMAL - set standard 80-column mode
 
-9
+9			PRINT MODE CONDENSED - set condesned 132-column mode
 
-10
+10			PRINT MODE DOUBLE - set enlarged 40-column mode
 
-16
+16			LINE END NORMAL - don't add anything to the lines of text received
 
-17
+17			LINE END LF - add linefeed (ASCII 10) to lines received
 
-18
+18			LINE FEED CR - add carriage return (ASCII 13) to lines received
 
-19
+19			LINE FEED CR-LF - add linefeed & carriage return to lines received
 
-32
+32 			REPORT STATE - request status report on printer
 
-33
+33 			REPORT ACK - request state of ACK/NO ACK setting
 
-34
+34 			REPORT AF - request state of Autofeed setting
 
