@@ -78,16 +78,14 @@
 #define INPUT_DDR DDRE
 
 // ----- SERIAL PORT ------------------------------
-#define CTS_PIN PD4			
-#define CTS_ONLINE 0		// CTS is active low
-#define CTS_OFFLINE 1
 #define SERIAL_REG PORTD
 #define SERIAL_DDR DDRD
-// most of the serial port is on Port D, but RTS is on Port E.
-// That said, we probably don't need it.
-//#define RTS_PIN			PE0
-//#define RTS_REG			PINE
-//#define RTS_DDR			DDRE
+// most of the serial port is on Port D, but CTS is on Port E.
+#define CTS_PIN		PE0
+#define CTS_REG		PORTE
+#define CTS_DDR		DDRE
+#define CTS_ONLINE  0	// CTS is active low
+#define CTS_OFFLINE 1
 
 // ----- DISPLAY ----------------------------------
 #define LCD_ADDRESS 0xC6
@@ -95,7 +93,7 @@
 // ----- LEDS -------------------------------------
 #define STAT_PRINTING    PD5	// indicates SP is printing
 #define STAT_SERIAL_RECV PD6	// SP is receiving serial data
-#define STAT_LED3        PD7
+#define STAT_CTS_OFFLINE  PD7
 #define LED_REG PORTD
 #define LED_DDR DDRD
 

@@ -24,13 +24,15 @@ void sendStateMsg()
 	displayMsg(prt_state_disp_msg[printer.state], PRINTER);	// this is wrong place to be doing this
 }
 
-void setCTS(uint8_t hilo)
+void setCTS(uint8_t ctsState)
 {
-	//setPin(&SERIAL_REG, CTS_PIN, hilo);
-	if(hilo == HIGH) {
-		SERIAL_REG |= (1 << CTS_PIN);
+	// CTS is active LOW
+	if(ctsState == CTS_ONLINE) {
+		CTS_REG &= ~(1 << CTS_PIN);				// take CTS LOW - it's active low
+		LED_REG &= ~(1 << STAT_CTS_OFFLINE);	// turn off CTS OFFLINE warning LED
 	} else {
-		SERIAL_REG &= ~(1 << CTS_PIN);
+		CTS_REG |= (1 << CTS_PIN);
+		LED_REG |= (1 << STAT_CTS_OFFLINE);
 	}
 }
 

@@ -93,7 +93,7 @@ bool lcd_present = false;     // assume no display
 *********************************************************************************/
 // PRINTER FUNCTIONS
 void clearBuffer();
-printer_state initialisePrinter();
+void initialisePrinter();
 void printBuffer();
 printer_state printChar(uint8_t chardata, ack_state waitForACK);
 void resetAck();
@@ -129,10 +129,10 @@ void clearBuffer()
 	}
 	buf_index = 0;
 	buf_ready = false;
-	SerialPort.clearBuffer();
+	//SerialPort.clearBuffer();
 }
 
-printer_state initialisePrinter()
+void initialisePrinter()
 {
 	setCTS(CTS_OFFLINE);		// deter serial input
 	resetAck();					// probably not necessary, but what the hell
@@ -147,8 +147,8 @@ printer_state initialisePrinter()
 	_delay_us(INIT_PULSE_LENGTH);		  // - keep line low
 	setPin(&OUTPUT_PORT, INIT_PIN, HIGH); // - release line
 	_delay_ms(POST_INIT_DELAY);			  // - let the printer settle down
-	updatePrinterState();				  // let's see how the printer's doing - sets CTS
-	return printer.state;
+	//updatePrinterState(true);				  // let's see how the printer's doing - sets CTS
+	//return printer.state;
 }
 
 void printBuffer()
@@ -175,10 +175,9 @@ void printBuffer()
 			done = true; // we've encountered a 0, hence end of data
 		}
 	}
-	clearBuffer();
-	updatePrinterState();
 	setLED(STAT_PRINTING, OFF);
-	//return printer.state;
+	clearBuffer();
+	updatePrinterState(true);	// resets CTS
 }
 
 printer_state printChar(uint8_t chardata, ack_state waitForACK)
@@ -260,10 +259,12 @@ printer_state updatePrinterState(bool setCts)
 	if (printer.busy) printer.state = BUSY;				// ERROR will also be set
 	if (!printer.select) printer.state = OFFLINE;
 	if (printer.pe) printer.state = PAPER_END;			// ERROR and BUSY will also be set
-	if (printer.state == READY && setCts) {
-		setCTS(CTS_ONLINE);
-	} else {
-		setCTS(CTS_OFFLINE);
+	if (setCts) {
+		if (printer.state == READY) {
+			setCTS(CTS_ONLINE);
+		} else {
+			setCTS(CTS_OFFLINE);
+		}
 	}
 	if (printer.state != printer.prev_state) {
 		printer.state_changed = true;
@@ -302,15 +303,15 @@ int main(void)
 	*********************************************************************************/
 
 	// Set pin directions
-	SHIFTREG_DDR |= (1 << SHCP_PIN | 1 << STCP_PIN | 1 << DATA_PIN);					  // shift reg pins as outputs
-	OUTPUT_DDR |= (1 << STROBE_PIN | 1 << INIT_PIN | 1 << AUTOFEED_PIN | 1 << SELIN_PIN); // outputs
-	INPUT_DDR &= ~(1 << BUSY_PIN | 1 << PE_PIN | 1 << SELECT_PIN);						  // BUSY, PE & SEL as inputs
-	INPUT_INT_DDR &= ~(1 << ACK_PIN | 1 << ERR_PIN);									  // ACK and ERR as inputs
-	LED_DDR |= (1 << STAT_PRINTING | 1 << STAT_SERIAL_RECV | 1 << STAT_LED3);			  // LEDS as outputs
-	SERIAL_DDR |= (1 << CTS_PIN);														  // CTS as output
+	SHIFTREG_DDR |= (1 << SHCP_PIN | 1 << STCP_PIN | 1 << DATA_PIN);						// shift reg pins as outputs
+	OUTPUT_DDR |= (1 << STROBE_PIN | 1 << INIT_PIN | 1 << AUTOFEED_PIN | 1 << SELIN_PIN);	// outputs
+	INPUT_DDR &= ~(1 << BUSY_PIN | 1 << PE_PIN | 1 << SELECT_PIN);							// BUSY, PE & SEL as inputs
+	INPUT_INT_DDR &= ~(1 << ACK_PIN | 1 << ERR_PIN);										// ACK and ERR as inputs
+	LED_DDR |= (1 << STAT_PRINTING | 1 << STAT_SERIAL_RECV | 1 << STAT_CTS_OFFLINE);		// LEDS as outputs
+	CTS_DDR |= (1 << CTS_PIN);																// CTS as output
 
 	// Set outputs at initial values
-	setCTS(CTS_OFFLINE);							// active low - refuse serial data while getting set up
+	setCTS(CTS_OFFLINE);					// active low - refuse serial data while getting set up
 	setPin(&OUTPUT_PORT, STROBE_PIN, HIGH); // active low
 	setPin(&OUTPUT_PORT, INIT_PIN, HIGH);   // active low
 	setAutofeed(AF_DISABLED);				// active low - disable by default
@@ -322,7 +323,7 @@ int main(void)
 
 	setLED(STAT_PRINTING, OFF);
 	setLED(STAT_SERIAL_RECV, OFF);
-	setLED(STAT_LED3, OFF);
+	setLED(STAT_CTS_OFFLINE, OFF);
 
 	SerialPort.begin(); // initialise serial port
 	_delay_ms(250);		// pause to allow everything to stabilise - DO WE NEED THIS?
@@ -345,29 +346,31 @@ int main(void)
 	}
 
 	displayMsg(serial_disp_msg[SER_OK], SERIAL);
+	DataRegister.shiftOut(0, MSBFIRST);
 
+	// flash LEDs
 	setLED(STAT_PRINTING, ON);
 	_delay_ms(BOOT_LED_DELAY);
 	setLED(STAT_SERIAL_RECV, ON);
 	_delay_ms(BOOT_LED_DELAY);
-	setLED(STAT_LED3, ON);
+	setLED(STAT_CTS_OFFLINE, ON);
 	_delay_ms(BOOT_LED_DELAY);
-
-	// Turn off LEDs
-	DataRegister.shiftOut(0, MSBFIRST);
 	setLED(STAT_PRINTING, OFF);
+	_delay_ms(BOOT_LED_DELAY);
 	setLED(STAT_SERIAL_RECV, OFF);
-	setLED(STAT_LED3, OFF);
+	_delay_ms(BOOT_LED_DELAY);
+	setLED(STAT_CTS_OFFLINE, OFF);
 
-	initialisePrinter();	// also sets CTS again
-	updatePrinterState();	// also sets CTS if printer ready
-	sendStateMsg();
+	initialisePrinter();		// also sets CTS to OFFLINE again
 
 	// Set up interrupts
 	EICRA = 0b00001010;					   // INT0 & INT1 to trigger on falling edge
 	EIMSK |= ((1 << INT0) | (1 << INT1));  // enable INT0 & INT1
 	EIFR |= ((1 << INTF0) | (1 << INTF1)); // clear the interrupt flags
 	sei();								   // enable global interrupts
+
+	updatePrinterState(true);	// also sets CTS if printer ready
+	sendStateMsg();
 
 	/********************************************************************************
 	*****   MAIN LOOP                                                           *****
@@ -400,6 +403,7 @@ int main(void)
 							SerialPort.writeln(serial_comm_msg[SER_READ_TO]);
 							displayMsg(serial_disp_msg[SER_READ_TO], SERIAL);
 							clearBuffer();
+							// maybe also clear the serial buffer here?
 							sendStateMsg();
 						}
 					}
@@ -471,7 +475,7 @@ int main(void)
 					case CMD_PRT_MODE_DBL:
 						break;
 					case CMD_REPORT_STATE:		// report printer state back to client
-						updatePrinterState();
+						updatePrinterState(false);
 						sendStateMsg();
 						displayText("Sent report",2);
 						break;
@@ -494,14 +498,13 @@ int main(void)
 			} else { 
 				// It's not a special command, so it's text to print
 				printBuffer();
-				sendStateMsg();
+				// sendStateMsg();
 				displayMsg(serial_disp_msg[SER_OK], SERIAL);
 			}
 		}
-
 		// Keep checking the status of the printer. If it changes, report the 
 		// new state to the client and the LCD display.
-		updatePrinterState();
+		updatePrinterState(true);
 		if (printer.state_changed) {
 			sendStateMsg();
 			printer.state_changed = false;
