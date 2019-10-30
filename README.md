@@ -26,21 +26,38 @@ Commands are sent by making the first byte ASCII 1. Any incoming bytes where the
 ###Commands
 
 Commands are sent by making the first byte ASCII 1. The next byte is the command.
+
 Cmd byte 	Function
+
 (Dec)
+
 1			PING - prompts the SP to send back the string 'SER_PONG'.
-2			DISABLE ACK - tell SP not to use the ACK signal when taling to printer
+
+2			DISABLE ACK - tell SP not to use the ACK signal when talking to printer
+
 3 			ENABLE ACK - tell SP to use the ACK signal when taling to printer
+
 4
+
 5
+
 8
+
 9
+
 10
+
 16
+
 17
+
 18
+
 19
+
 32
+
 33
+
 34
 
