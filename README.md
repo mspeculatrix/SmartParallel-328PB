@@ -27,12 +27,13 @@ Commands are sent by making the first byte ASCII 1. Any incoming bytes where the
 
 Commands are sent by making the first byte ASCII 1. The next byte is the command.
 
-Cmd byte 	Function
+<pre>Cmd byte 	Function
 
 (Dec)
 
-> 1    PING - prompts the SP to send back the string SER_PONG.
-> 2    DISABLE ACK - tell SP not to use the ACK signal when talking to printer. Responds with message: PIF_ACK_DISABLED
+1    PING - prompts the SP to send back the string SER_PONG.
+
+2    DISABLE ACK - tell SP not to use the ACK signal when talking to printer. Responds with message: PIF_ACK_DISABLED
 
 3 			ENABLE ACK - tell SP to use the ACK signal when taling to printer. Responds with message: PIF_ACK_ENABLED
 
@@ -58,5 +59,5 @@ Cmd byte 	Function
 
 33 			REPORT ACK - request state of ACK/NO ACK setting. Responds with message: PIF_ACK_ENABLED or PIF_ACK_DISABLED
 
-34 			REPORT AF - request state of Autofeed setting. Responds with message: PIF_AF_ENABLED or PIF_AF_DISABLED
+34 			REPORT AF - request state of Autofeed setting. Responds with message: PIF_AF_ENABLED or PIF_AF_DISABLED</pre>
 
