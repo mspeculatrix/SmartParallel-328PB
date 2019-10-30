@@ -1,9 +1,9 @@
 # SmartParallel-328PB
 Atmel ATMEGA328PB code for SmartParallel project.
 
-https://mansfield-devine.com/speculatrix/category/projects/smartparallel/
+https://mansfield-devine.com/speculatrix/projects/smartparallel-serial-to-parallel-printer-interface/
 
-This is a work in progress.
+This is a perpetual work in progress.
 
 It requires a number of [my libraries](https://github.com/mspeculatrix/avr-lib), so you'll need to ensure you set these up appropriately. 
 
@@ -25,25 +25,17 @@ Commands are sent by making the first byte ASCII 1. Any incoming bytes where the
 
 ### Serial messages
 
-Messages sent by the SmartParallel to the host are:
+Messages sent by the SmartParallel to the host during printing operations are:
 
 * PRT_READY - the interface and printer are ready to print.
-
 * PRT_DONE - the interface has sent a character to the printer without receiving an error.
-
 * PRT_INIT - the interface is performing the printer initialisation function.
 * PRT_OFFLINE - the printer is offline (the printer's SELECT line has gone low).
-
 * PRT_PRINTING - the interface has sent text to the printer.
-
 * PRT_BUSY - the printer is busy. This is in response to a BUSY signal from the printer.
-
 * PRT_ERROR - the interface received an ERROR signal from the printer.
-
 * PRT_PE - the interface received a PAPER OUT error from the printer.
-
 * PRT_ACK_TIMEOUT - the interface timed out while waiting for an ACK signal from the printer.
-
 * PRT_BUSY_TIMEOUT - having sent a character to the printer, the printer has been sending a 'busy' signal for a suspiciously long time, so an error has probably occurred.
 
 If an LCD display is fitted, similar messages are sent to that.

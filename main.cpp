@@ -1,6 +1,8 @@
 /*
   SmartParallel.cpp
 
+  See: https://mansfield-devine.com/speculatrix/projects/smartparallel-serial-to-parallel-printer-interface/
+
   Code for Atmel ATMEGA328PB micronctroller on the SmartParallel serial to
   parallel interface.
 
