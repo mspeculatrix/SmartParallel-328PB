@@ -28,7 +28,6 @@ Commands are sent by making the first byte ASCII 1. Any incoming bytes where the
 Commands are sent by making the first byte ASCII 1. The next byte is the command.
 
 <pre>Cmd byte 	Function
-
 (Dec)
 
 1    PING - prompts the SP to send back the string SER_PONG.
