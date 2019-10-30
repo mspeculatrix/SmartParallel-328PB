@@ -461,12 +461,12 @@ int main(void)
 					case CMD_AUTOFEED_DISABLE: // disable AUTOFEED
 						printer.autofeed = AF_DISABLED;
 						setPin(&OUTPUT_PORT, AUTOFEED_PIN, AF_DISABLED);
-						SerialPort.writeln("PIF_LF_DISABLED");
+						SerialPort.writeln("PIF_AF_DISABLED");
 						break;
 					case CMD_AUTOFEED_ENABLE:
 						printer.autofeed = AF_ENABLED; // enable AUTOFEED
 						setPin(&OUTPUT_PORT, AUTOFEED_PIN, AF_ENABLED);
-						SerialPort.writeln("PIF_LF_ENABLED");
+						SerialPort.writeln("PIF_AF_ENABLED");
 						break;
 					case CMD_PRT_MODE_NORMAL:
 						break;
